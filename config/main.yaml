@@ -1,0 +1,48 @@
+common:
+  # -------------------------------------------------------
+  # python venv directory
+  # -------------------------------------------------------
+  python_venv_dir: /usr/local/nvr-venv
+
+  # -------------------------------------------------------
+  # 保存先ディレクトリ（全カメラ共通）
+  # -------------------------------------------------------
+  records_dir_base: /mnt/USBHDD/Share/share/NVR/records
+  events_dir_base: /mnt/USBHDD/Share/share/NVR/events
+  motion_tmp_base: /dev/shm/motion_tmp
+
+  # -------------------------------------------------------
+  # デフォルト録画ファイル長（秒）
+  # -------------------------------------------------------
+  default_segment_time: 300
+
+  # -------------------------------------------------------
+  # デフォルトイベント継続時間（秒）
+  # -------------------------------------------------------
+  default_event_timeout: 10
+
+  # -------------------------------------------------------
+  # デフォルト昼夜判定方式
+  # -------------------------------------------------------
+  default_daynight_mode: "brightness"
+
+  # brightness モード用
+  default_brightness_threshold: 40
+
+  # time モード用
+  day_start: "06:00"
+  night_start: "18:00"
+
+  # sunrise モード用
+  latitude: "35.423N"
+  longitude: "136.863E"
+
+  # -------------------------------------------------------
+  # motion（動体検知）のデフォルト値
+  # -------------------------------------------------------
+  default_motion_threshold: 50
+  default_motion_min_area: 500
+  default_motion_blur: 5
+  default_motion_noise_v_kernel_height: 20
+  default_motion_max_aspect_ratio: 1.5
+  default_motion_enabled: true

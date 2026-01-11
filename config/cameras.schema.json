@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NVR Camera Configuration Schema",
+  "type": "object",
+
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Camera name (unique identifier)"
+    },
+
+    "enabled": {
+      "type": "boolean",
+      "description": "Enable or disable this camera"
+    },
+
+    "type": {
+      "type": "string",
+      "enum": ["esp32cam", "rtsp", "usb"],
+      "description": "Camera type"
+    },
+
+    "connection": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": ["string", "null"],
+          "description": "Camera IP address or hostname"
+        },
+        "port": {
+          "type": ["integer", "null"],
+          "description": "HTTP port (esp32cam)"
+        },
+        "rtsp_url": {
+          "type": ["string", "null"],
+          "description": "RTSP URL (rtsp cameras)"
+        },
+        "device": {
+          "type": ["string", "null"],
+          "description": "USB device path (e.g. /dev/video0)"
+        }
+      },
+      "required": ["host"]
+    },
+
+    "ffmpeg": {
+      "type": "object",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "description": "FFmpeg profile name"
+        },
+        "segment_time": {
+          "type": "integer",
+          "description": "Segment duration in seconds"
+        }
+      }
+    },
+
+    "motion": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable motion detection"
+        },
+        "threshold": {
+          "type": "integer"
+        },
+        "min_area": {
+          "type": "integer"
+        },
+        "blur": {
+          "type": "integer"
+        }
+      }
+    },
+
+    "event": {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "integer",
+          "description": "Idle seconds before ending an event"
+        }
+      }
+    },
+
+    "daynight": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["brightness", "time", "sunrise", "fixed"]
+        },
+        "brightness_threshold": {
+          "type": "number"
+        },
+        "day_start": {
+          "type": "string"
+        },
+        "night_start": {
+          "type": "string"
+        },
+        "latitude": {
+          "type": "string"
+        },
+        "longitude": {
+          "type": "string"
+        },
+        "fixed_value": {
+          "type": ["string", "null"],
+          "enum": ["day", "night", null]
+        }
+      }
+    },
+
+    "esp32cam": {
+      "type": "object",
+      "properties": {
+        "rtsp_port": {
+          "type": "integer"
+        },
+        "ssrc": {
+          "type": ["string", "null"]
+        },
+        "camera_config": {
+          "type": "object",
+          "properties": {
+            "day": { "type": "string" },
+            "night": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "rtsp": {
+      "type": "object",
+      "properties": {
+        "extra": { "type": ["string", "null"] }
+      }
+    },
+
+    "usb": {
+      "type": "object",
+      "properties": {
+        "extra": { "type": ["string", "null"] }
+      }
+    }
+  },
+
+  "required": ["name", "enabled", "type", "connection"]
+}

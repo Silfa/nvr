@@ -1,0 +1,65 @@
+# ---------------------------------------------------------
+# Camera definition (必須)
+# ---------------------------------------------------------
+name: frontdoor
+enabled: true            # ← setup_nvr.sh が参照（カメラ全体の有効/無効）
+type: esp32cam           # esp32cam | rtsp | usb
+
+# ---------------------------------------------------------
+# Connection settings（タイプ共通）
+# ---------------------------------------------------------
+connection:
+  host: 192.168.0.10     # esp32cam / rtsp 共通
+  port: 80               # esp32cam 用
+  rtsp_url: null         # rtsp 用
+  device: null           # USB カメラ用（例: /dev/video0）
+
+# ---------------------------------------------------------
+# FFmpeg recording settings（標準 API）
+# ---------------------------------------------------------
+ffmpeg:
+  profile: default       # ffmpeg_nvr が参照
+  segment_time: 300      # 個別設定（なければ main.yaml の default）
+
+# ---------------------------------------------------------
+# Motion detection settings（標準 API）
+# ---------------------------------------------------------
+motion:
+  enabled: true          # detector が参照（動体検知の ON/OFF）
+  threshold: 25
+  min_area: 500
+  blur: 5
+
+# ---------------------------------------------------------
+# Event handling settings（標準 API）
+# ---------------------------------------------------------
+event:
+  timeout: 10            # handler が参照（個別 → default）
+
+# ---------------------------------------------------------
+# Day/Night mode settings（標準 API）
+# ---------------------------------------------------------
+daynight:
+  mode: brightness       # brightness | time | sunrise | fixed
+  brightness_threshold: 40
+  day_start: "06:00"
+  night_start: "18:00"
+  latitude: "35.423N"
+  longitude: "136.863E"
+  fixed_value: null
+
+# ---------------------------------------------------------
+# Type-specific settings（自由領域）
+# ---------------------------------------------------------
+esp32cam:
+  camera_config:
+    day: |
+      { "camera": { ... } }
+    night: |
+      { "camera": { ... } }
+
+rtsp:
+  extra: null
+
+usb:
+  extra: null

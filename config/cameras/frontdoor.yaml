@@ -1,0 +1,101 @@
+# ---------------------------------------------------------
+# Camera definition
+# ---------------------------------------------------------
+name: frontdoor
+display_name: 玄関ドア
+enabled: true
+type: esp32cam
+
+# ---------------------------------------------------------
+# Connection settings
+# ---------------------------------------------------------
+connection:
+  host: IP_ADDRESS_or_HOSTNAME
+  port: HTTP_PORT
+  rtsp_url: null
+  device: null
+
+# ---------------------------------------------------------
+# FFmpeg recording settings
+# ---------------------------------------------------------
+ffmpeg:
+  profile: default
+  segment_time: 300
+
+# ---------------------------------------------------------
+# Motion detection settings
+# ---------------------------------------------------------
+motion:
+  enabled: true
+  threshold: 64
+  min_area: 500
+  blur: 7
+  noise_v_kernel_height: 20
+  max_aspect_ratio: 1.5
+
+# ---------------------------------------------------------
+# Event handling settings
+# ---------------------------------------------------------
+event:
+  timeout: 10
+
+# ---------------------------------------------------------
+# Day/Night mode settings（main.yaml の default を使用）
+# 必要なら個別 override を追加可能
+# ---------------------------------------------------------
+daynight:
+  mode: brightness
+  brightness_threshold: 40
+  day_start: "06:00"
+  night_start: "18:00"
+  latitude: "35.5N"
+  longitude: "135.1E"
+  fixed_value: null
+
+# ---------------------------------------------------------
+# esp32cam 固有設定
+# ---------------------------------------------------------
+esp32cam:
+  rtsp_port: 8554
+  ssrc: auto
+
+  camera_config:
+    day: |
+      {
+        "camera": {
+          "brightness": 0,
+          "contrast": 0,
+          "saturation": 0,
+          "aec": true,
+          "aec2": true,
+          "gain_ctrl": true,
+          "awb": true,
+          "awb_mode": 0,
+          "denoise": true,
+          "sharpness": 0,
+          "lenc": true,
+          "jpeg_quality": 10,
+          "vflip": true,
+          "hmirror": true
+        }
+      }
+
+    night: |
+      {
+        "camera": {
+          "brightness": 1,
+          "contrast": 0,
+          "saturation": 0,
+          "aec": true,
+          "aec2": true,
+          "gain_ctrl": false,
+          "awb": true,
+          "awb_mode": 0,
+          "denoise": true,
+          "sharpness": 1,
+          "lenc": true,
+          "jpeg_quality": 10,
+          "vflip": true,
+          "hmirror": true
+        }
+      }

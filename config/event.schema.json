@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NVR Motion Event Schema",
+  "type": "object",
+
+  "properties": {
+    "timestamp":        { "type": "string" },
+    "timestamp_end":    { "type": "string" },
+    "duration_sec":     { "type": "number", "minimum": 0 },
+
+    "camera":           { "type": "string" },
+    "event_timeout":    { "type": "number", "minimum": 0 },
+
+    "daynight":         { "type": "string", "enum": ["day", "night", "unknown"] },
+
+    "brightness_min":   { "type": "number" },
+    "brightness_max":   { "type": "number" },
+
+    "jpeg_count":       { "type": "number", "minimum": 1 },
+    "first_frame":      { "type": "string" },
+    "last_frame":       { "type": "string" },
+
+    "total_size_bytes": { "type": "number", "minimum": 0 },
+
+    "ai_tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "ai_objects": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "ai_confidence": {
+      "type": "array",
+      "items": { "type": "number" }
+    }
+  },
+
+  "required": [
+    "timestamp",
+    "timestamp_end",
+    "duration_sec",
+    "camera",
+    "jpeg_count"
+  ]
+}
