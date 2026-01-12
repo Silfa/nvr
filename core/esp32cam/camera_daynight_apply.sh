@@ -36,7 +36,7 @@ fi
 # ---------------------------------------------------------
 
 # esp32cam 固有の JSON 設定
-JOSN=$(get_cam_val "$CAM" ".esp32cam.camera_config.${MODE} // \"\"")
+JSON=$(get_cam_val "$CAM" ".esp32cam.camera_config.${MODE} // \"\"")
 if [ -z "$JSON" ] || [ "$JSON" = "null" ]; then
     echo "[$CAM] No esp32cam.camera_config.$MODE found"
     exit 0

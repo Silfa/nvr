@@ -22,7 +22,7 @@ fi
 source "$ENV_GATEWAY"
 source "$COMMON_UTILS"
 
-CONFIG="$NVR_CONF_MAIN_FILE"
+CONFIG="$NVR_CONFIG_MAIN_FILE"
 SCRIPT_DIR="$NVR_CORE_DIR"
 VENV_DIR=$(get_main_val '.common.python_venv_dir')
 
