@@ -164,15 +164,15 @@ done
 # ---------------------------------------------------------
 # 8. set storage directories permissions
 # ---------------------------------------------------------echo "[setup_nvr] Setting permissions for storage directories..."
-for directoriy in "$MOTION_TMP_BASE" "$RECORDS_DIR_BASE" "$EVENTS_DIR_BASE"; do
-    if [ -d "$directoriy" ]; then
-        chown -R "$NVR_USER":"$NVR_GROUP" "$directoriy"
-        chmod 777 "$directoriy"
+for directory in "$MOTION_TMP_BASE" "$RECORDS_DIR_BASE" "$EVENTS_DIR_BASE" "$NVR_DAYNIGHT_FILE_DIR"; do
+    if [ -d "$directory" ]; then
+        chown -R "$NVR_USER":"$NVR_GROUP" "$directory"
+        chmod 777 "$directory"
     else
-        echo "[setup_nvr] Directory $directoriy does not exist, creating..."
-        mkdir -p "$directoriy"
-        chown -R "$NVR_USER":"$NVR_GROUP" "$directoriy"
-        chmod 777 "$directoriy"
+        echo "[setup_nvr] Directory $directory does not exist, creating..."
+        mkdir -p "$directory"
+        chown -R "$NVR_USER":"$NVR_GROUP" "$directory"
+        chmod 777 "$directory"
     fi
 done
 

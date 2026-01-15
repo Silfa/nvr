@@ -1,11 +1,28 @@
 #!/bin/bash
 set -euo pipefail
 
+# ==============================================================================
+# NVR System Deployment Script
+#
+# This script deploys the NVR (Network Video Recorder) application and its
+# components to the local system. It handles user creation, directory setup,
+# script installation, configuration, and systemd service setup.
+# Must be run with root privileges.
+# ==============================================================================
+
+# ---------------------------------------------------------
+# Ensure script is run as root
+# ---------------------------------------------------------
+if [ "$(id -u)" -ne 0 ]; then
+    echo "This script must be run as root. Please use sudo." >&2
+    exit 1
+fi
+
 # ---------------------------------------------------------
 # Define user and group
 # ---------------------------------------------------------
 NVR_USER="nvruser"
-NVR_GROUP="nvruser"
+NVR_GROUP="$NVR_USER"
 
 
 # ---------------------------------------------------------
@@ -82,19 +99,19 @@ chmod -R 755 "$NVR_BASE_DIR/common"
 echo "[deploy] Deploying NVR system..."
 
 # ---------------------------------------------------------
-# 1. Deploy scripts → $NVR_BASE_DIR(/usr/local/bin/nvr)
+# 1. Deploy core and common scripts → $NVR_CORE_DIR, $NVR_COMMON_DIR
 # ---------------------------------------------------------
 echo "[deploy] Installing scripts to $NVR_BASE_DIR"
 cp -r "$CORE_SCRIPTS_DIR/"* "$NVR_BASE_DIR/core/"
 cp -r "$COMMON_SCRIPTS_DIR/"* "$NVR_BASE_DIR/common/"
 
 # ---------------------------------------------------------
-# 2. Deploy override templates → $NVR_LIB_DIR/templates/override(/usr/local/lib/nvr/templates/override)
+# 2. Deploy override templates → $NVR_LIB_DIR/templates/override
 # ---------------------------------------------------------
 replace_placeholder() {
-    sed -e "s|{{NVR_CORE_DIR}}|$NVR_CORE_DIR|g" \
-        -e "s|{{NVR_USER}}|$NVR_USER|g" \
-        -e "s|{{NVR_GROUP}}|$NVR_GROUP|g" "$1"
+    sed -e "s#{{NVR_CORE_DIR}}#${NVR_CORE_DIR}#g" \
+        -e "s#{{NVR_USER}}#${NVR_USER}#g" \
+        -e "s#{{NVR_GROUP}}#${NVR_GROUP}#g" "$1"
 }
 
 echo "[deploy] Installing override templates"
@@ -104,7 +121,7 @@ for tpl in "$OVERRIDE_TPL_DIR"/*.tpl; do
 done
 
 # ---------------------------------------------------------
-# 3. Deploy systemd unit templates (.tpl → .service)
+# 3. Deploy systemd unit files from templates → $SYSTEMD_DIR
 # ---------------------------------------------------------
 echo "[deploy] Installing systemd unit files"
 
@@ -119,18 +136,17 @@ for tpl in "$UNIT_TPL_DIR"/*.tpl; do
 done
 
 # ---------------------------------------------------------
-# 4. Deploy schema → /usr/local/lib/nvr/schema
+# 4. Deploy JSON schema files → $NVR_LIB_DIR/schema
 # ---------------------------------------------------------
 echo "[deploy] Installing schema files"
-
+shopt -s nullglob
 for SCHEMA in "$CONFIG_DIR"/*.schema.json; do
-    [ -f "$SCHEMA" ] || continue
     cp "$SCHEMA" "$NVR_LIB_DIR/schema/"
     echo "  - $(basename "$SCHEMA")"
 done
 
 # ---------------------------------------------------------
-# 5. Deploy YAML configs → /etc/nvr
+# 5. Deploy YAML configuration files → $ETC_NVR_DIR
 # ---------------------------------------------------------
 echo "[deploy] Installing YAML configs"
 cp "$CONFIG_DIR/main.yaml" "$ETC_NVR_DIR/"
@@ -145,7 +161,7 @@ echo "[deploy] Reloading systemd..."
 systemctl daemon-reload
 
 # ---------------------------------------------------------
-# 7. Write install paths metadata
+# 7. Write install paths metadata → $ETC_NVR_DIR/install_paths
 # ---------------------------------------------------------
 echo "[deploy] Writing install paths metadata"
 INSTALL_PATHS="/etc/nvr/install_paths"
@@ -162,6 +178,7 @@ base_dir: $NVR_BASE_DIR
 core_dir: $NVR_BASE_DIR/core
 common_dir: $NVR_BASE_DIR/common
 lib_dir: $NVR_LIB_DIR
+common_utils_path: $NVR_COMMON_DIR/common_utils.sh
 daynight_file_dir: $DAYNIGHT_FILE_DIR
 
 # 設定ファイル情報
@@ -173,15 +190,6 @@ EOF
 
 chown root:root $INSTALL_PATHS
 chmod 644 $INSTALL_PATHS
-
-# ---------------------------------------------------------
-# 8. Write common_utils.sh path metadata
-# ---------------------------------------------------------
-echo "COMMON_UTILS=\"$NVR_COMMON_DIR/common_utils.sh\"" > "$ETC_NVR_DIR/common_utils_path"
-
-# 権限を root 所有の読み取り専用にする
-chown root:root "$ETC_NVR_DIR/common_utils_path"
-chmod 644 "$ETC_NVR_DIR/common_utils_path"
 
 # ---------------------------------------------------------
 # Deployment complete
