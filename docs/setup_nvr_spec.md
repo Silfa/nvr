@@ -23,7 +23,7 @@ setup_nvr.sh は以下を行う：
 - **YAML に無いカメラのユニットを削除**  
 - **YAML に無いカメラの TMP_DIR を削除**  
 - enabled=false のカメラを disable＋ユニット削除  
-- enabled=true のカメラについて ffmpeg_nvr_<CAM>.service を生成  
+- enabled=true のカメラについて override.conf を生成  
 - motion_event_handler@ / opencv_motion@ を enable  
 - systemctl daemon-reload  
 - 起動は start_nvr.sh に委譲  
@@ -66,10 +66,16 @@ setup_nvr.sh
 
 ## 4.1 生成されるユニット
 
-### ffmpeg 録画ユニット（カメラごと・個別生成）
+### ffmpeg 録画ユニット（テンプレート）
 
 ```
-/etc/systemd/system/ffmpeg_nvr_<CAM>.service
+/etc/systemd/system/ffmpeg_nvr@.service
+```
+
+### ffmpeg 録画ユニット用オーバーライド（カメラごと・個別生成）
+
+```
+/etc/systemd/system/ffmpeg_nvr@.service.d/override.conf
 ```
 
 ### motion_event_handler ユニット（テンプレート）
@@ -78,10 +84,10 @@ setup_nvr.sh
 /etc/systemd/system/motion_event_handler@.service
 ```
 
-### opencv_motion ユニット（テンプレート）
+### motion_detector ユニット（テンプレート）
 
 ```
-/etc/systemd/system/opencv_motion@.service
+/etc/systemd/system/motion_detector@.service
 ```
 
 ---
@@ -94,51 +100,28 @@ setup_nvr.sh は cameras.yaml を読み取り、
 例：
 
 ```
-[Unit]
-Description=NVR FFmpeg Recorder (<CAM>)
-After=network-online.target
-Wants=network-online.target
-
 [Service]
-Type=simple
 ExecStartPre=/usr/local/bin/nvr/camera_daynight_apply.sh <CAM>
-ExecStart=/usr/local/bin/nvr/run_ffmpeg.sh <CAM>
-Restart=always
-RestartSec=5
 RuntimeMaxSec=<SEGMENT_TIME>
-KillMode=process
-TimeoutStopSec=1
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
 ```
 
 埋め込まれる値：
 
-- `<CAM>`（カメラ名）  
-- `<SEGMENT_TIME>`（録画セグメント時間）  
-- その他 run_ffmpeg.sh が参照する設定  
+- `<SEGMENT_TIME>`（録画セグメント時間）
 
----
 
-# 6. systemd テンプレートを使わず個別ユニットを生成する理由
+# 6. なぜテンプレート＋オーバーライド方式を採用するのか
 
-systemd テンプレート（`ffmpeg_nvr@.service`）では `%i` しか扱えず、  
-以下のようなカメラ固有設定を渡せないため：
+`ffmpeg_nvr@.service` という共通のテンプレートユニットを使い、  
+カメラごとの可変設定（録画時間など）だけを `override.conf` に分離することで、  
+基本ロジックの変更が全カメラに一括で適用できるようになります。
 
-- IP アドレス  
-- RTSP ポート  
-- segment_time  
-- motion_filter  
-- day/night 設定  
-- 保存先ディレクトリ  
-- brightness 判定の有無  
+これにより、カメラごとに `.service` ファイルを丸ごと管理する必要がなくなり、  
+メンテナンス性が大幅に向上します。
 
-そのため、**ffmpeg_nvr_<CAM>.service は個別生成が必須**である。
+カメラ名（`%i`）以外の固有設定は、各スクリプトが YAML ファイルから直接読み込むため、  
+systemd 側で複雑な値を管理する必要はありません。
 
----
 
 # 7. motion_event_handler@.service の扱い
 
@@ -149,18 +132,15 @@ motion_event_handler はテンプレートユニットを使用する。
 - カメラ名以外の設定はスクリプト側で YAML から読み取る  
 - systemd 側に複雑な設定を持たせる必要がない  
 
----
 
-# 8. opencv_motion@.service の扱い
+# 8. motion_detector@.service の扱い
 
-opencv_motion もテンプレートユニットを使用する。
+motion_detector もテンプレートユニットを使用する。
 
 理由：
 
-- OpenCV 側もカメラ名以外の設定を YAML から読み取る  
-- ffmpeg の出力 JPEG を参照するだけで systemd 側に依存しない  
+- Python スクリプト側もカメラ名以外の設定を YAML から読み取る  
 
----
 
 # 9. 不要ユニットの削除（YAML に無いカメラ）
 
@@ -169,9 +149,9 @@ setup_nvr.sh は systemd に登録されている NVR 関連ユニットを走�
 
 対象：
 
-- ffmpeg_nvr_<CAM>.service  
-- motion_event_handler@<CAM>.service  
-- opencv_motion@<CAM>.service  
+- ffmpeg_nvr@<CAM>.service
+- motion_detector@<CAM>.service
+- motion_event_handler@<CAM>.service
 
 削除されるケース：
 
@@ -182,26 +162,19 @@ setup_nvr.sh は systemd に登録されている NVR 関連ユニットを走�
 
 削除内容：
 
-- systemctl stop  
-- systemctl disable  
-- ffmpeg_nvr_<CAM>.service の削除  
-- TMP_DIR（motion_tmp_base/<CAM>/）削除  
+- systemctl stop / disable
+- TMP_DIR の削除
 
----
 
 # 10. enabled=false のカメラの扱い
 
 enabled=false のカメラは以下を行う：
 
-- systemctl stop  
-- systemctl disable  
-- ffmpeg_nvr_<CAM>.service を削除  
-- TMP_DIR を削除  
-- 再生成対象から除外する  
+- systemctl stop / disable
+- TMP_DIR を削除
 
 これにより、start_nvr.sh が誤って起動することを防ぐ。
 
----
 
 # 11. setup_nvr.sh の処理フロー（完全版）
 
@@ -211,11 +184,11 @@ enabled=false のカメラは以下を行う：
 3. systemd に存在する NVR 関連ユニットを列挙
 4. YAML に無いカメラのユニット/TMP_DIR を削除
 5. enabled=false のカメラのユニット/TMP_DIR を削除
-6. enabled=true のカメラについて ffmpeg_nvr_<CAM>.service を生成
+6. enabled=true のカメラについて override.conf を生成
 7. systemctl daemon-reload
 8. motion_event_handler@<CAM> を enable
-9. opencv_motion@<CAM> を enable
-10. ffmpeg_nvr_<CAM>.service を enable
+9. motion_detector@<CAM> を enable
+10. ffmpeg_nvr@<CAM>.service を enable
 11. 起動は start_nvr.sh に委譲（setup_nvr.sh は起動しない）
 ```
 

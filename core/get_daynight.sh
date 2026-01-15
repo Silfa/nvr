@@ -30,6 +30,7 @@ MODE=$(get_nvr_val "$CAM" '.daynight.mode // ""' '.common.default_daynight_mode'
 
 # brightness threshold
 THRESH=$(get_nvr_val "$CAM" '.daynight.brightness_threshold // ""' '.common.default_brightness_threshold')
+[ -z "$THRESH" ] && THRESH=40
 
 # time mode
 DAY_START=$(get_nvr_val "$CAM" '.daynight.day_start // ""' '.common.day_start')
@@ -61,7 +62,7 @@ brightness_mode() {
         return
     fi
 
-    if (( $(echo "$YAVG >= $THRESH" | bc -l) )); then
+    if awk "BEGIN {exit !($YAVG >= $THRESH)}"; then
         echo "day"
     else
         echo "night"
@@ -72,7 +73,7 @@ brightness_mode() {
 # 3. time モード
 # ---------------------------------------------------------
 time_mode() {
-    if [ "$DAY_START" = "null" ] || [ "$NIGHT_START" = "null" ]; then
+    if [ -z "$DAY_START" ] || [ "$DAY_START" = "null" ] || [ -z "$NIGHT_START" ] || [ "$NIGHT_START" = "null" ]; then
         echo "unknown"
         return
     fi

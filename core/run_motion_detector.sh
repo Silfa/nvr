@@ -25,12 +25,15 @@ source "$COMMON_UTILS"
 CONFIG="$NVR_CONFIG_MAIN_FILE"
 SCRIPT_DIR="$NVR_CORE_DIR"
 VENV_DIR=$(get_main_val '.common.python_venv_dir')
+if [ -z "$VENV_DIR" ] || [ "$VENV_DIR" = "null" ]; then
+    VENV_DIR="/usr/local/nvr-venv"
+fi
 
 # ---------------------------------------------------------
 # 1. venv activate
 # ---------------------------------------------------------
 # systemd は root で動くため sudo は不要
-source /usr/local/nvr-venv/bin/activate
+source "${VENV_DIR}/bin/activate"
 
 # ---------------------------------------------------------
 # 2. main.yaml から TMP_DIR を取得して作成

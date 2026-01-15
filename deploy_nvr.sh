@@ -19,25 +19,29 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # ---------------------------------------------------------
-# Define user and group
+# Load deployment configuration
 # ---------------------------------------------------------
-NVR_USER="nvruser"
-NVR_GROUP="$NVR_USER"
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+DEPLOY_CONF="$REPO_DIR/deploy_nvr.conf"
 
+if [ -f "$DEPLOY_CONF" ]; then
+    echo "[deploy] Loading configuration from $DEPLOY_CONF"
+    source "$DEPLOY_CONF"
+else
+    echo "[deploy] Error: Configuration file not found: $DEPLOY_CONF" >&2
+    exit 1
+fi
 
 # ---------------------------------------------------------
 # Paths
 # ---------------------------------------------------------
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-NVR_BASE_DIR="/usr/local/bin/nvr"
+# Destination paths (NVR_USER, NVR_GROUP, NVR_BASE_DIR, NVR_LIB_DIR, DAYNIGHT_FILE_DIR are loaded from deploy_nvr.conf)
 NVR_CORE_DIR="${NVR_BASE_DIR}/core"
 NVR_COMMON_DIR="${NVR_BASE_DIR}/common"
-NVR_LIB_DIR="/usr/local/lib/nvr"
 SYSTEMD_DIR="/etc/systemd/system"
 ETC_NVR_DIR="/etc/nvr"
-DAYNIGHT_FILE_DIR="/dev/shm/nvr/daynight_files.d"
 
+# Source paths from repository
 UNIT_TPL_DIR="$REPO_DIR/templates/unit"
 OVERRIDE_TPL_DIR="$REPO_DIR/templates/override"
 CONFIG_DIR="$REPO_DIR/config"

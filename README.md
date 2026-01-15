@@ -10,25 +10,33 @@ ESP32-CAM + ffmpeg + OpenCV + Bash Scripts
 
 ```
 nvr/
-  docs/        - 仕様書（cameras.yaml, event.json など）
-  scripts/     - NVR の実行スクリプト群
-  opencv/      - OpenCV テストスクリプト
-  config/      - 設定ファイル（cameras.yaml, event.schema.json）
+  core/        - NVR の中核スクリプト群 (ffmpeg, motion_detector, handler)
+  common/      - 共通ユーティリティ
+  config/      - 設定ファイル (cameras.yaml, main.yaml)
+  docs/        - 詳細仕様書
+  templates/   - Systemd ユニットおよび設定ファイルのテンプレート
 ```
 
 ---
 
 ## 📄 主な仕様書
 
-- docs/cameras_yaml_spec.md  
-- docs/event_json_spec.md  
-（今後追加予定：OpenCV, ffmpeg, ESP32-CAM 仕様）
+### システム管理
+- Setup Guide
+- Architecture Overview
+- Setup NVR Spec
+
+### コンポーネント仕様
+- Cameras YAML Spec
+- Event JSON Spec
+- FFmpeg Runner Spec
+- OpenCV Motion Spec
 
 ---
 
 ## 🎯 概要
 
-- ESP32-CAM から RTSP で映像取得  
+- ESP32-CAM から RTSP で映像取得 (MJPEG over TCP)
 - ffmpeg による録画（セグメント化）  
 - OpenCV による動体検知  
 - motion.flag によるイベント管理  
@@ -40,7 +48,4 @@ nvr/
 
 ## 🔧 今後の予定
 
-- OpenCV 仕様書追加  
-- ffmpeg パイプライン仕様書追加  
-- ESP32-CAM スケッチ仕様書追加  
 - Web UI（イベント一覧・再生）  

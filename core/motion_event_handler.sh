@@ -252,6 +252,11 @@ while true; do
             printf -v fname "%04d.jpg" "$frame_counter"
             cp "$LATEST" "$event_dir/$fname"
 
+            # 初回フレーム保存時にアラート送信（非同期）
+            if [ $frame_counter -eq 1 ] && [ -x "$NVR_CORE_DIR/send_motion_alert.sh" ]; then
+                "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" >/dev/null 2>&1 &
+            fi
+
             # 3. brightness 更新
             update_brightness
         fi

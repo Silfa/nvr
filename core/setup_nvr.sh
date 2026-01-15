@@ -133,7 +133,7 @@ for CAM in "${YAML_CAMERAS[@]}"; do
 
     SEG=$(yq -r '.ffmpeg.segment_time // ""' "$CAMFILE")
     if [ -z "$SEG" ] || [ "$SEG" = "null" ]; then
-        SEG=$(yq -r '.common.default_segment_time' "$MAINCFG")
+        SEG=$(yq -r '.common.default_segment_time' "$NVR_CONFIG_MAIN_FILE")
     fi
 
     sed "s/{{SEGMENT_TIME}}/${SEG}/g" "$TPL" > "$OVERRIDE_DIR/override.conf"
@@ -163,7 +163,8 @@ done
 
 # ---------------------------------------------------------
 # 8. set storage directories permissions
-# ---------------------------------------------------------echo "[setup_nvr] Setting permissions for storage directories..."
+# ---------------------------------------------------------
+echo "[setup_nvr] Setting permissions for storage directories..."
 for directory in "$MOTION_TMP_BASE" "$RECORDS_DIR_BASE" "$EVENTS_DIR_BASE" "$NVR_DAYNIGHT_FILE_DIR"; do
     if [ -d "$directory" ]; then
         chown -R "$NVR_USER":"$NVR_GROUP" "$directory"
