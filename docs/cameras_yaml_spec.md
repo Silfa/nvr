@@ -25,37 +25,65 @@ NVR のすべてのコンポーネント（ffmpeg、OpenCV、handler、ESP32-CAM
 
 ```yaml
 common:
-  save_dir_base: /mnt/USBHDD/Share/share/NVR
+  python_venv_dir: /usr/local/nvr-venv
+  
+  records_dir_base: /mnt/USBHDD/Share/share/NVR/records
+  events_dir_base: /mnt/USBHDD/Share/share/NVR/events
   motion_tmp_base: /dev/shm/motion_tmp
 
   default_segment_time: 300
   default_event_timeout: 10
+  default_daynight_mode: "brightness" # brightness / time / sunrise
+  
+  # brightness mode settings
+  default_brightness_threshold: 40
+  
+  # sunrise mode settings
+  latitude: "35.423N"
+  longitude: "136.863E"
+  
+  # time mode settings
+  day_start: "06:00"
+  night_start: "18:00"
 
-  default_motion_filter_day: "tblend=all_mode=average,select='gt(scene,0.05)'"
-  default_motion_filter_night: "select='gt(scene,0.05)'"
-
-  daynight_mode: "brightness"
-  brightness_threshold: 40
-
-  latitude: 35.423
-  longitude: 136.863
+  default_motion_threshold: 50
+  default_motion_min_area: 500
+  default_motion_blur: 5
 
 cameras:
   - name: frontdoor
+    display_name: 玄関
     enabled: true
-    ip: 192.168.0.59
-    rtsp_port: 8554
+    type: esp32cam # esp32cam / rtsp / usb
+    
+    connection:
+      host: 192.168.0.59
+      port: 80
+      rtsp_url: null
 
-    segment_time: 300
-    event_timeout: 10
+    ffmpeg:
+      segment_time: 300
+    
+    event:
+      timeout: 10
 
-    analyze_brightness: true
+    daynight:
+      mode: brightness
+      brightness_threshold: 40
+      # lat/lon or time settings can be overridden here
+    
+    motion:
+      enabled: true
+      threshold: 64
+      min_area: 500
 
-    camera_config:
-      day: |
-        { ... }
-      night: |
-        { ... }
+    esp32cam:
+      rtsp_port: 8554
+      camera_config:
+        day: |
+          { ... }
+        night: |
+          { ... }
 ```
 
 ---
@@ -66,7 +94,8 @@ cameras:
 
 | キー | 説明 |
 |------|------|
-| `save_dir_base` | 録画データ（MKV・イベント）の保存先 |
+| `records_dir_base` | 録画データ（MKV）の保存先ベースディレクトリ |
+| `events_dir_base` | イベントデータ（JSON, JPEG）の保存先ベースディレクトリ |
 | `motion_tmp_base` | RAM ディスク上の latest.jpg / motion.flag の保存先 |
 
 例：  
@@ -83,19 +112,15 @@ cameras:
 
 ---
 
-## 3.3 motion filter（ffmpeg の scene 検出）
+## 3.3 動体検知設定 (OpenCV)
 
-### 昼
-```
-tblend=all_mode=average,select='gt(scene,0.05)'
-```
+`common` でデフォルト値を設定し、`cameras` 内で override 可能。
 
-### 夜
-```
-select='gt(scene,0.05)'
-```
-
-夜はノイズが多いため tblend を外している。
+| キー | 説明 |
+|------|------|
+| `default_motion_threshold` | 差分検知の閾値 (0-255) |
+| `default_motion_min_area` | 動体とみなす最小面積 (px) |
+| `default_motion_blur` | ブラー処理のカーネルサイズ (奇数) |
 
 ---
 
@@ -103,10 +128,12 @@ select='gt(scene,0.05)'
 
 | キー | 説明 |
 |------|------|
-| `daynight_mode` | brightness / time / sunrise |
-| `brightness_threshold` | 明るさの閾値（40 以上で昼） |
+| `default_daynight_mode` | brightness / time / sunrise |
+| `default_brightness_threshold` | 明るさの閾値（これ以上で昼） |
+| `latitude` / `longitude` | sunrise モード用の緯度経度 |
+| `day_start` / `night_start` | time モード用の開始時間 ("HH:MM") |
 
-sunrise モード用に緯度経度も設定可能。
+各カメラの設定（`daynight` ブロック）で上書き可能。
 
 ---
 

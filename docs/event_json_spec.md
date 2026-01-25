@@ -52,19 +52,16 @@ NVR System — Motion Event Metadata Format
     "event_timeout":    { "type": "number", "minimum": 0 },
 
     "daynight":         { "type": "string", "enum": ["day", "night", "unknown"] },
-    "brightness":       { "type": "number" },
+
     "brightness_min":   { "type": "number" },
     "brightness_max":   { "type": "number" },
-    "brightness_avg":   { "type": "number" },
 
     "jpeg_count":       { "type": "number", "minimum": 1 },
     "first_frame":      { "type": "string" },
     "last_frame":       { "type": "string" },
-    "fps_estimate":     { "type": "number" },
 
     "total_size_bytes": { "type": "number", "minimum": 0 },
-    "avg_frame_size":   { "type": "number", "minimum": 0 },
-
+    
     "ai_tags": {
       "type": "array",
       "items": { "type": "string" }
@@ -117,10 +114,8 @@ NVR System — Motion Event Metadata Format
 | フィールド | 説明 |
 |-----------|------|
 | `daynight` | "day" / "night" / "unknown" |
-| `brightness` | 最終フレームの明るさ |
 | `brightness_min` | イベント中の最小明るさ |
 | `brightness_max` | イベント中の最大明るさ |
-| `brightness_avg` | イベント中の平均明るさ |
 
 ---
 
@@ -131,7 +126,6 @@ NVR System — Motion Event Metadata Format
 | `jpeg_count` | 保存された JPEG の枚数 |
 | `first_frame` | 最初の JPEG ファイル名 |
 | `last_frame` | 最後の JPEG ファイル名 |
-| `fps_estimate` | 実測 FPS |
 
 ---
 
@@ -140,7 +134,6 @@ NVR System — Motion Event Metadata Format
 | フィールド | 説明 |
 |-----------|------|
 | `total_size_bytes` | JPEG 合計サイズ |
-| `avg_frame_size` | 平均 JPEG サイズ |
 
 ---
 
