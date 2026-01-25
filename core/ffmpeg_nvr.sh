@@ -40,6 +40,12 @@ if [ -z "$TYPE" ] || [ "$TYPE" = "null" ]; then
     exit 1
 fi
 
+# Validate TYPE to prevent directory traversal
+if [[ ! "$TYPE" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "[ffmpeg_nvr] Error: Invalid camera type format: $TYPE" >&2
+    exit 1
+fi
+
 RUNNER="${NVR_CORE_DIR}/${TYPE}/ffmpeg_runner.sh"
 
 if [ ! -x "$RUNNER" ]; then

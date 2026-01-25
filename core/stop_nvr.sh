@@ -28,7 +28,7 @@ fi
 # 2. カメラ名を抽出してユニーク化
 # ---------------------------------------------------------
 CAMERAS=$(echo "$RUNNING_SERVICES" \
-    | sed -E 's/^.*@([^.]+)\.service$/\1/; s/^ffmpeg_nvr@([^.]+)\.service$/\1/' \
+    | sed -E 's/^.*@([^.]+)\.service$/\1/' \
     | sort -u)
 
 echo "[stop_nvr] Detected cameras: $CAMERAS"

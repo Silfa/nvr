@@ -23,7 +23,10 @@ DAYNIGHT_FILE="$NVR_DAYNIGHT_FILE_DIR/daynight_${CAM}.txt"
 # ---------------------------------------------------------
 # 1. 現在の昼夜モード取得
 # ---------------------------------------------------------
-MODE=$("$NVR_CORE_DIR/get_daynight.sh" "$CAM")
+if ! MODE=$("$NVR_CORE_DIR/get_daynight.sh" "$CAM"); then
+    echo "[$CAM] Warning: get_daynight.sh failed, defaulting to night"
+    MODE="night"
+fi
 OLD=$(cat "$DAYNIGHT_FILE" 2>/dev/null || echo "unknown")
 
 # 変化なしなら終了

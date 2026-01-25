@@ -17,7 +17,7 @@ stop_nvr.sh は、NVR に関連する systemd サービスを
 stop_nvr.sh は以下の NVR コンポーネントを停止する：
 
 1. **motion_event_handler@<cam>.service**
-2. **opencv_motion@<cam>.service**
+2. **motion_detector@<cam>.service**
 3. **ffmpeg_nvr@<cam>.service**
 
 ただし、停止対象は cameras.yaml ではなく  
@@ -25,12 +25,12 @@ stop_nvr.sh は以下の NVR コンポーネントを停止する：
 
 停止順序は従来通り：
 
-- handler → opencv → ffmpeg
+- handler → motion_detector → ffmpeg
 
 理由：
 
 - handler はイベントを閉じる責務があるため、最初に停止する  
-- OpenCV は motion.flag と yavg.txt を更新するため、handler 停止後に停止  
+- motion_detector は motion.flag と yavg.txt を更新するため、handler 停止後に停止  
 - ffmpeg は録画ストリームを生成するため、最後に停止する  
 
 ---
@@ -54,7 +54,7 @@ stop_nvr.sh
 
 ```
 motion_event_handler@*.service
-opencv_motion@*.service
+motion_detector@*.service
 ffmpeg_nvr@*.service
 ```
 
@@ -75,7 +75,7 @@ systemctl list-units --type=service --state=running
 
 ```
 motion_event_handler@frontdoor.service
-opencv_motion@frontdoor.service
+motion_detector@frontdoor.service
 ffmpeg_nvr@frontdoor.service
 ```
 
@@ -88,7 +88,7 @@ ffmpeg_nvr@frontdoor.service
 各カメラについて以下の順序で停止する：
 
 1. **motion_event_handler@<cam>.service**
-2. **opencv_motion@<cam>.service**
+2. **motion_detector@<cam>.service**
 3. **ffmpeg_nvr@<cam>.service**
 
 systemd 側から検出したサービスが存在する場合のみ停止する。

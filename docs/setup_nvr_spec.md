@@ -23,7 +23,7 @@ setup_nvr.sh は以下を行う：
 - **YAML に無いカメラのユニットを削除**  
 - **YAML に無いカメラの TMP_DIR を削除**  
 - enabled=false のカメラを disable＋ユニット削除  
-- enabled=true のカメラについて ffmpeg_nvr_<CAM>.service を生成  
+- enabled=true のカメラについて override.conf を生成  
 - motion_event_handler@ / opencv_motion@ を enable  
 - systemctl daemon-reload  
 - 起動は start_nvr.sh に委譲  
@@ -72,13 +72,19 @@ setup_nvr.sh
 /etc/systemd/system/ffmpeg_nvr@.service
 ```
 
+### ffmpeg 録画ユニット用オーバーライド（カメラごと・個別生成）
+
+```
+/etc/systemd/system/ffmpeg_nvr@.service.d/override.conf
+```
+
 ### motion_event_handler ユニット（テンプレート）
 
 ```
 /etc/systemd/system/motion_event_handler@.service
 ```
 
-### opencv_motion ユニット（テンプレート）
+### motion_detector ユニット（テンプレート）
 
 ```
 /etc/systemd/system/motion_detector@.service
@@ -100,22 +106,27 @@ setup_nvr.sh は cameras.yaml を読み取り、
 例：
 ```ini
 [Service]
-Environment="SEGMENT_TIME=300"
+ExecStartPre=/usr/local/bin/nvr/core/esp32cam/camera_daynight_apply.sh %i
+RuntimeMaxSec=300
 ```
 
-この override.conf は、テンプレート内のプレースホルダーや環境変数を上書きするために使用される。
-テンプレートの `ExecStart` は共通化されており、カメラごとの違いは環境変数や引数 (`%i`) で吸収する設計となっている。
+埋め込まれる値：
+- `<SEGMENT_TIME>`（録画セグメント時間）
+- `{{NVR_CORE_DIR}}` (デプロイ時に置換)
 
 ---
 
-# 6. 個別ユニット生成の廃止
+# 6. なぜテンプレート＋オーバーライド方式を採用するのか
 
-以前は `ffmpeg_nvr_<CAM>.service` という個別ファイルを生成していたが、
-現在は **systemd テンプレート (`ffmpeg_nvr@.service`) + `override.conf`** 方式に統一された。
+`ffmpeg_nvr@.service` という共通のテンプレートユニットを使い、  
+カメラごとの可変設定（録画時間など）だけを `override.conf` に分離することで、  
+基本ロジックの変更が全カメラに一括で適用できるようになります。
 
-理由：
-- ユニットファイルの管理を簡素化するため
-- 共通部分の修正を容易にするため
+これにより、カメラごとに `.service` ファイルを丸ごと管理する必要がなくなり、  
+メンテナンス性が大幅に向上します。
+
+カメラ名（`%i`）以外の固有設定は、各スクリプトが YAML ファイルから直接読み込むため、  
+systemd 側で複雑な値を管理する必要はありません。
 
 ---
 
@@ -124,14 +135,15 @@ Environment="SEGMENT_TIME=300"
 motion_event_handler はテンプレートユニットをそのまま使用する。
 カメラごとの設定（タイムアウト等）はスクリプト実行時に `cameras.yaml` から直接読み込むため、systemd 側の override は不要である。
 
----
 
 # 8. motion_detector@.service の扱い
 
-motion_detector (旧 opencv_motion) もテンプレートユニットを使用する。
-動体検知パラメータは `cameras.yaml` から読み込まれる。
+motion_detector もテンプレートユニットを使用する。
 
----
+理由：
+
+- Python スクリプト側もカメラ名以外の設定を YAML から読み取る  
+
 
 # 9. 不要ユニットの削除（YAML に無いカメラ）
 
@@ -139,20 +151,24 @@ setup_nvr.sh は systemd に登録されている NVR 関連ユニットを走�
 **cameras.yaml に存在しないカメラのユニット設定を削除する。**
 
 対象：
+
 - `ffmpeg_nvr@<CAM>.service.d/` (override ディレクトリ)
 - `motion_tmp_base/<CAM>/` (一時ディレクトリ)
+- `motion_detector@<CAM>.service` (無効化)
+- `motion_event_handler@<CAM>.service` (無効化)
 
 削除内容：
+
 - systemctl stop
 - systemctl disable
 - override ディレクトリの削除
 - TMP_DIR の削除
 
----
 
 # 10. enabled=false のカメラの扱い
 
 enabled=false のカメラは以下を行う：
+
 - systemctl stop
 - systemctl disable
 - override ディレクトリを削除
@@ -160,7 +176,6 @@ enabled=false のカメラは以下を行う：
 
 これにより、start_nvr.sh が誤って起動することを防ぐ。
 
----
 
 # 11. setup_nvr.sh の処理フロー（完全版）
 
@@ -172,11 +187,10 @@ enabled=false のカメラは以下を行う：
 5. enabled=false のカメラのユニット設定/TMP_DIR を削除
 6. enabled=true のカメラについて override.conf を生成
 7. systemctl daemon-reload
-8. 各ユニットを enable
-   - ffmpeg_nvr@<CAM>
-   - motion_detector@<CAM>
-   - motion_event_handler@<CAM>
-9. 起動は start_nvr.sh に委譲（setup_nvr.sh は起動しない）
+8. motion_event_handler@<CAM> を enable
+9. motion_detector@<CAM> を enable
+10. ffmpeg_nvr@<CAM>.service を enable
+11. 起動は start_nvr.sh に委譲（setup_nvr.sh は起動しない）
 ```
 
 ---

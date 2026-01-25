@@ -1,7 +1,9 @@
 #!/bin/bash
-echo "send_motion_alert.sh called: $1"
-
 EVENT_DIR="$1"
+if [ -z "$EVENT_DIR" ]; then
+    echo "[NVR SendAlert] Error: Event directory not provided."
+    exit 1
+fi
 
 ENV_GATEWAY="/etc/nvr/common_utils_path"
 if [ ! -f "$ENV_GATEWAY" ]; then
@@ -19,24 +21,43 @@ if [ -z "$MAIL_ADDRESS" ]; then
     exit 1
 fi
 
-# イベント開始時刻（フォルダ名から取得）
-EVENT_NAME=$(basename "$EVENT_DIR")
-EVENT_TIME=${EVENT_NAME#event_}
+# イベントID（フォルダ名）から時刻とカメラ名を抽出
+EVENT_ID=$(basename "$EVENT_DIR")
+# パス構造: .../<CAM>/<YEAR>/<MONTH>/<EVENT_ID>
+CAM_DIR=$(dirname "$(dirname "$(dirname "$EVENT_DIR")")")
+CAM_NAME=$(basename "$CAM_DIR")
 
-# 最初のJPEGを取得
-FIRST_JPEG=$(ls "$EVENT_DIR" | sort | head -n 1)
-FIRST_JPEG_PATH="$EVENT_DIR/$FIRST_JPEG"
+# 時刻整形 (YYYYMMDD_HHMMSS -> YYYY-MM-DD HH:MM:SS)
+if [[ "$EVENT_ID" =~ ^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})$ ]]; then
+    EVENT_TIME="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}-${BASH_REMATCH[3]} ${BASH_REMATCH[4]}:${BASH_REMATCH[5]}:${BASH_REMATCH[6]}"
+else
+    EVENT_TIME="$EVENT_ID"
+fi
+
+# 最初のJPEGを取得 (0001.jpg を優先的に探す)
+FIRST_JPEG_PATH="$EVENT_DIR/0001.jpg"
+if [ ! -f "$FIRST_JPEG_PATH" ]; then
+    # 0001.jpg がなければ ls で探す（フォールバック）
+    FIRST_JPEG=$(ls "$EVENT_DIR"/*.jpg 2>/dev/null | sort | head -n 1)
+    if [ -n "$FIRST_JPEG" ]; then
+        FIRST_JPEG_PATH="$FIRST_JPEG"
+    else
+        echo "[NVR SendAlert] No JPEG images found in $EVENT_DIR"
+        exit 0
+    fi
+fi
 
 # メール本文
-BODY="Motion detected at $EVENT_TIME
+BODY="Motion detected!
+
+Camera: $CAM_NAME
+Time:   $EVENT_TIME
+Event:  $EVENT_ID
 
 Event folder:
 $EVENT_DIR
-
-First image:
-$FIRST_JPEG_PATH
 "
 
 # メール送信
-echo "[NVR SendAlert] Sending motion alert email to $MAIL_ADDRESS for event at $EVENT_TIME"
-echo "$BODY" | mail -s "NVR Motion Alert: $EVENT_TIME" -A "$FIRST_JPEG_PATH" "$MAIL_ADDRESS"
+echo "[NVR SendAlert] Sending email to $MAIL_ADDRESS (Cam: $CAM_NAME, Time: $EVENT_TIME)"
+echo "$BODY" | mail -s "NVR Motion Alert: $CAM_NAME at $EVENT_TIME" -A "$FIRST_JPEG_PATH" "$MAIL_ADDRESS"

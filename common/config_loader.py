@@ -17,9 +17,11 @@ NVR_CONFIG_CAM_DIR = _paths['config_cam_dir']
 NVR_CONFIG_CAM_SECRET_DIR = _paths['config_cam_secret_dir']
 
 def load_main_config():
-    with open(NVR_CONFIG_MAIN_FILE, "r") as f:
-        return yaml.safe_load(f) or {}
-    
+    config = {}
+    if os.path.exists(NVR_CONFIG_MAIN_FILE):
+        with open(NVR_CONFIG_MAIN_FILE, "r") as f:
+            config = yaml.safe_load(f) or {}
+
     if os.path.exists(NVR_CONFIG_MAIN_SECRET_FILE):
         with open(NVR_CONFIG_MAIN_SECRET_FILE, "r") as f:
             secrets = yaml.safe_load(f) or {}

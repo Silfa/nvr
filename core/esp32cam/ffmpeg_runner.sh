@@ -71,7 +71,7 @@ echo "[esp32cam] OUTFILE: $OUTFILE"
 exec ffmpeg \
     -hide_banner -loglevel warning \
     \
-    -re \
+    -stimeout 5000000 \
     -rtsp_transport tcp \
     -i "$RTSP_URL" \
     \
@@ -87,7 +87,6 @@ exec ffmpeg \
     -preset veryfast \
     -crf 23 \
     -pix_fmt yuv420p \
-    -segment_format mkv \
     -reset_timestamps 1 \
     -metadata title="$START_TIME" \
     "$OUTFILE"

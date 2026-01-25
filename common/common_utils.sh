@@ -68,7 +68,7 @@ get_cam_val() {
 get_nvr_val() {
     local cam=$1
     local cam_key=$2
-    local main_key=$2    
+    local main_key=$3
     
     local val
     val=$(get_cam_val "$cam" "$cam_key")

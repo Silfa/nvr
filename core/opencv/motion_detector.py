@@ -1,7 +1,6 @@
 import cv2
 import os
 import time
-import yaml
 import sys
 import numpy as np
 import functools
@@ -23,26 +22,6 @@ print = functools.partial(print, flush=True)
 def calc_yavg(frame):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     return int(np.mean(gray))
-
-# ----------------------------------------
-# 3. 動体検知
-# ----------------------------------------
-def detect_motion(prev_gray, gray, threshold, min_area):
-    # 差分
-    diff = cv2.absdiff(prev_gray, gray)
-
-    # 閾値処理（白黒の二値画像にする）
-    _, thresh = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)
-
-    # 輪郭抽出
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-    # 一定以上の面積の輪郭があれば「動体あり」
-    for cnt in contours:
-        if cv2.contourArea(cnt) >= min_area:
-            return True
-
-    return False
 
 # ----------------------------------------
 # 4. メイン処理
