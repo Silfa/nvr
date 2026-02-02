@@ -28,6 +28,16 @@ echo "[debug] MOTION_TMP_BASE = \"${MOTION_TMP_BASE}\""
 RECORDS_DIR_BASE=$(get_main_val '.common.records_dir_base')
 EVENTS_DIR_BASE=$(get_main_val ".common.events_dir_base")
 
+# Check for mail configuration and dependency
+MAIL_ADDR=$(get_main_val '.common.mail_address')
+if [ -n "$MAIL_ADDR" ] && [ "$MAIL_ADDR" != "null" ]; then
+    if ! command -v mail >/dev/null 2>&1; then
+        echo "[setup_nvr] Warning: 'mail' command not found, but 'common.mail_address' is configured."
+        echo "  Motion alerts will NOT be sent. Please install a mail utility (e.g., bsd-mailx or mailutils)."
+    fi
+fi
+
+
 if ! command -v yq >/dev/null 2>&1; then
     echo "[setup_nvr] Error: yq is not installed" >&2
     exit 1
@@ -176,5 +186,42 @@ for directory in "$MOTION_TMP_BASE" "$RECORDS_DIR_BASE" "$EVENTS_DIR_BASE" "$NVR
         chmod 777 "$directory"
     fi
 done
+
+# ---------------------------------------------------------
+# 9. Setup Nginx Configuration
+# ---------------------------------------------------------
+echo "[setup_nvr] Configuring Nginx..."
+
+NGINX_TPL="$NVR_LIB_DIR/templates/nvr-web.nginx.conf"
+NGINX_CONF_DEST="/etc/nginx/sites-available/nvr-web"
+
+if [ -f "$NGINX_TPL" ] && [ -d "/etc/nginx/sites-available" ]; then
+    if ! command -v nginx >/dev/null 2>&1; then
+        echo "[setup_nvr] Warning: 'nginx' command not found. Skipping Nginx configuration."
+        echo "  If you intend to use the Web UI, please install nginx and run this script again."
+    else
+        echo "[setup_nvr] Generating Nginx config at $NGINX_CONF_DEST"
+        
+        # Get port from main.yaml
+        WEB_PORT=$(yq -r '.common.web.port // 8000' "$NVR_CONFIG_MAIN_FILE")
+        
+        cat "$NGINX_TPL" > "$NGINX_CONF_DEST"
+        
+        if [ "$WEB_PORT" != "8000" ] && [ "$WEB_PORT" != "null" ]; then
+            echo "[setup_nvr] Updating Nginx config to use port $WEB_PORT"
+            sed -i "s/127.0.0.1:8000/127.0.0.1:$WEB_PORT/g" "$NGINX_CONF_DEST"
+        fi
+        
+        echo "---------------------------------------------------------"
+        echo "IMPORTANT: Web UI Nginx Setup"
+        echo "---------------------------------------------------------"
+        echo "1. Add the following line inside your 'server { ... }' block in /etc/nginx/sites-enabled/default:"
+        echo "   include $NGINX_CONF_DEST;"
+        echo "2. Reload nginx: systemctl reload nginx"
+        echo "3. Enable and start the web service:"
+        echo "   sudo systemctl enable --now nvr-web.service"
+        echo "---------------------------------------------------------"
+    fi
+fi
 
 echo "[setup_nvr] Setup complete."

@@ -5,10 +5,17 @@ common:
   python_venv_dir: /usr/local/nvr-venv
 
   # -------------------------------------------------------
+  # Web UI Configuration
+  # -------------------------------------------------------
+  web:
+    port: 8000
+    host: "0.0.0.0"
+
+  # -------------------------------------------------------
   # 保存先ディレクトリ（全カメラ共通）
   # -------------------------------------------------------
-  records_dir_base: /mnt/USBHDD/Share/share/NVR/records
-  events_dir_base: /mnt/USBHDD/Share/share/NVR/events
+  records_dir_base: /mnt/WD_Purple/NVR/records
+  events_dir_base: /mnt/WD_Purple/NVR/events
   motion_tmp_base: /dev/shm/motion_tmp
 
   # -------------------------------------------------------

@@ -79,6 +79,26 @@ cleanup_handler() {
 trap cleanup_handler SIGTERM SIGINT
 
 # ---------------------------------------------------------
+# 3.5. JPEG完全性チェック
+# ---------------------------------------------------------
+validate_jpeg() {
+    local file="$1"
+    [ ! -f "$file" ] && return 1
+    
+    # SOI (Start of Image): 0xFF 0xD8
+    local soi
+    soi=$(xxd -p -l 2 "$file" 2>/dev/null)
+    [ "$soi" != "ffd8" ] && return 1
+    
+    # EOI (End of Image): 0xFF 0xD9
+    local eoi
+    eoi=$(xxd -p -s -2 "$file" 2>/dev/null)
+    [ "$eoi" != "ffd9" ] && return 1
+    
+    return 0
+}
+
+# ---------------------------------------------------------
 # 4. brightness 更新
 # ---------------------------------------------------------
 update_brightness() {
@@ -121,12 +141,20 @@ start_event() {
     event_start_iso=$(date -Is)
     event_start_epoch=$(date +%s)
     last_motion_time=$event_start_epoch
-    frame_counter=0
     last_saved_mtime=0
     brightness_min=""
     brightness_max=""
 
     daynight=$("${NVR_CORE_DIR}/get_daynight.sh" "$CAM" 2>/dev/null || echo "unknown")
+    
+    # --- 検知前フレーム (Optional) の取り込み ---
+    PRE_MOTION="${TMP_DIR}/pre_motion.jpg"
+    if [ -f "$PRE_MOTION" ]; then
+        mv "$PRE_MOTION" "$event_dir/0001.jpg"
+        frame_counter=1
+    else
+        frame_counter=0
+    fi
 
     # 初期 JSON
     cat <<EOF > "$event_dir/event.json"
@@ -246,19 +274,21 @@ while true; do
             fi
         fi
 
-        # 2. イベント中なら JPEG 保存
+        # 2. イベント中なら JPEG 保存（完全性チェック付き）
         if [ $event_active -eq 1 ]; then
-            frame_counter=$((frame_counter + 1))
-            printf -v fname "%04d.jpg" "$frame_counter"
-            cp "$LATEST" "$event_dir/$fname"
+            if validate_jpeg "$LATEST"; then
+                frame_counter=$((frame_counter + 1))
+                printf -v fname "%04d.jpg" "$frame_counter"
+                cp "$LATEST" "$event_dir/$fname"
 
-            # 初回フレーム保存時にアラート送信（非同期）
-            if [ $frame_counter -eq 1 ] && [ -x "$NVR_CORE_DIR/send_motion_alert.sh" ]; then
-                "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" >/dev/null 2>&1 &
+                # 初回フレーム保存時にアラート送信（非同期）
+                if [ $frame_counter -eq 1 ] && [ -x "$NVR_CORE_DIR/send_motion_alert.sh" ]; then
+                    "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" >/dev/null 2>&1 &
+                fi
+
+                # 3. brightness 更新
+                update_brightness
             fi
-
-            # 3. brightness 更新
-            update_brightness
         fi
     fi
 

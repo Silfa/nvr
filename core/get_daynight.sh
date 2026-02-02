@@ -41,7 +41,7 @@ LAT=$(get_nvr_val "$CAM" '.daynight.latitude // ""' '.common.latitude')
 LON=$(get_nvr_val "$CAM" '.daynight.longitude // ""' '.common.longitude')
 
 # fixed mode
-FIXED=$(get_nvr_val '.daynight.fixed_value // ""' '.common.fixed_value // ""')
+FIXED=$(get_nvr_val "$CAM" '.daynight.fixed_value // ""' '.common.fixed_value // ""')
 
 # tmp base
 TMP_BASE=$(get_main_val '.common.motion_tmp_base')

@@ -15,6 +15,12 @@ NVR_CONFIG_MAIN_FILE = _paths['config_main_file']
 NVR_CONFIG_MAIN_SECRET_FILE = _paths['config_main_secret_file']
 NVR_CONFIG_CAM_DIR = _paths['config_cam_dir']
 NVR_CONFIG_CAM_SECRET_DIR = _paths['config_cam_secret_dir']
+# NVR_CONFIG_DIR is usually /etc/nvr
+_config_dir = os.path.dirname(NVR_CONFIG_MAIN_FILE)
+NVR_CONFIG_MASK_DIR = os.path.join(_config_dir, "masks")
+# Override if specified in paths
+if 'config_mask_dir' in _paths:
+    NVR_CONFIG_MASK_DIR = _paths['config_mask_dir']
 
 def load_main_config():
     config = {}
@@ -47,3 +53,16 @@ def _deep_update(base, src):
             _deep_update(base[k], v)
         else:
             base[k] = v
+
+def get_config_value(config, key_path, default=None):
+    """
+    Get a value from a nested dictionary using a dot-separated key path.
+    """
+    keys = key_path.split('.')
+    val = config
+    for k in keys:
+        if isinstance(val, dict):
+            val = val.get(k)
+        else:
+            return default
+    return val if val is not None else default
