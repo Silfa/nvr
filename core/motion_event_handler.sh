@@ -283,7 +283,8 @@ while true; do
 
                 # 初回フレーム保存時にアラート送信（非同期）
                 if [ $frame_counter -eq 1 ] && [ -x "$NVR_CORE_DIR/send_motion_alert.sh" ]; then
-                    "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" >/dev/null 2>&1 &
+                   # loggerのタグとしてイベントIDを使用し、システムログに記録する
+                    ( "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" 2>&1 | logger -t "nvr_send_alert[${event_id}]" ) &
                 fi
 
                 # 3. brightness 更新

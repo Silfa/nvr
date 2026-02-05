@@ -9,25 +9,9 @@ from common import config_loader
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-NVR_CONFIG_DIR = os.getenv("NVR_CONFIG_DIR", "/etc/nvr")
-MAIN_CONFIG = config_loader.load_main_config()
+from common.config_loader import RECORDS_DIR_BASE, NVR_CONFIG_DIR, load_camera_config
 
-def get_config_value(key_path: str) -> Any:
-     keys = key_path.split('.')
-     val = MAIN_CONFIG
-     for k in keys:
-         if isinstance(val, dict):
-             val = val.get(k)
-         else:
-             return None
-     return val
-
-def get_records_dir_base() -> str:
-    val = get_config_value("common.records_dir_base")
-    if val:
-        return val
-    logger.warning("Using fallback records path: /mnt/WD_Purple/NVR/records")
-    return "/mnt/WD_Purple/NVR/records"
+# Removed redundant get_records_dir_base and helper functions
 
 @router.get("/live/{camera_name}")
 async def stream_live(camera_name: str):
@@ -38,8 +22,7 @@ async def stream_recording(camera_name: str, filename: str, ss: float = 0):
     """
     Stream a specific MKV file as MP4 (fragmented) on the fly.
     """
-    records_base = get_records_dir_base()
-    file_path = os.path.join(records_base, camera_name, filename)
+    file_path = os.path.join(RECORDS_DIR_BASE, camera_name, filename)
     
     if not os.path.exists(file_path):
         logger.warning(f"File not found: {file_path}")
@@ -51,7 +34,7 @@ async def stream_recording(camera_name: str, filename: str, ss: float = 0):
     
     # Try to determine if this is an ESP32-CAM (which often has broken timestamps requiring forced FPS)
     try:
-        cam_config = config_loader.load_camera_config(camera_name)
+        cam_config = load_camera_config(camera_name)
         if cam_config.get("type") == "esp32cam":
             is_esp32cam = True
     except Exception as e:
@@ -60,20 +43,22 @@ async def stream_recording(camera_name: str, filename: str, ss: float = 0):
     # FFmpeg command to remux MKV to fragmented MP4
     ffmpeg_cmd = ["ffmpeg", "-hide_banner", "-loglevel", "warning"]
     
-    # For ESP32-CAM, we use a simple -r 5 to prevent extreme fast-forward,
-    # but we skip stretching and seeking as they are inaccurate due to non-linear frame drops.
+    # For ESP32-CAM, we use a simple copy (-c:v copy) to be as lightweight as possible.
     if is_esp32cam:
-        ffmpeg_cmd.extend(["-r", "5", "-i", file_path])
-        # Note: 'ss' is ignored here as requested by the user.
+        # User requested seeking functionality but with a small margin (start early).
+        # We apply -ss if offset is meaningful.
+        if ss > 0:
+            # Shift back by 5 seconds for safety, but not before the start of the file.
+            effective_ss = max(0, ss - 5)
+            ffmpeg_cmd.extend(["-ss", str(effective_ss)])
+            
+        ffmpeg_cmd.extend(["-i", file_path, "-c:v", "copy"])
     else:
         if ss > 0:
             ffmpeg_cmd.extend(["-ss", str(ss)])
-        ffmpeg_cmd.extend(["-i", file_path])
+        ffmpeg_cmd.extend(["-i", file_path, "-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency"])
 
     ffmpeg_cmd.extend([
-        "-c:v", "libx264",
-        "-preset", "ultrafast",
-        "-tune", "zerolatency",
         "-an", # Drop audio for now
         "-movflags", "frag_keyframe+empty_moov+default_base_moof",
         "-f", "mp4",
@@ -81,29 +66,30 @@ async def stream_recording(camera_name: str, filename: str, ss: float = 0):
     ])
     
     async def iter_file():
-        process = subprocess.Popen(
-            ffmpeg_cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            bufsize=1024*1024
+        import asyncio
+        process = await asyncio.create_subprocess_exec(
+            *ffmpeg_cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
         )
         
         try:
             while True:
-                chunk = process.stdout.read(128 * 1024)
+                # Read from stdout
+                chunk = await process.stdout.read(128 * 1024)
                 if not chunk:
-                    if process.poll() is not None and process.returncode != 0:
-                        err = process.stderr.read().decode()
-                        logger.error(f"FFmpeg error: {err}")
                     break
                 yield chunk
         except Exception as e:
             logger.error(f"Streaming generator error: {e}")
-            process.kill()
         finally:
-            if process.poll() is None:
-                process.terminate()
-                process.wait()
+            if process.returncode is None:
+                try:
+                    process.kill()
+                    await process.wait()
+                except ProcessLookupError:
+                    pass
+            logger.debug(f"FFmpeg process {process.pid} cleaned up.")
 
     return StreamingResponse(
         iter_file(), 

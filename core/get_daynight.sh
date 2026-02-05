@@ -7,11 +7,11 @@
 
 set -euo pipefail
 
-CAM="$1"
-if [ -z "$CAM" ]; then
+if [ $# -eq 0 ]; then
     echo "Usage: $0 <camera_name>" >&2
     exit 1
 fi
+CAM="$1"
 
 ENV_GATEWAY="/etc/nvr/common_utils_path"
 if [ ! -f "$ENV_GATEWAY" ]; then
@@ -105,12 +105,13 @@ time_mode() {
 # 4. sunrise モード
 # ---------------------------------------------------------
 sunrise_mode() {
-    if ! command -v sunwait >/dev/null 2>&1; then
+    SW="/usr/local/bin/sunwait"
+    if [ ! -x "$SW" ]; then
         time_mode
         return
     fi
 
-    RESULT=$(sunwait poll "$LAT" "$LON")
+    RESULT=$("${SW}" poll "${LAT}" "${LON}" || true)
     if [ "$RESULT" = "DAY" ]; then
         echo "day"
     else

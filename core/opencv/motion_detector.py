@@ -129,8 +129,11 @@ def main():
         mask_img = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
         if mask_img is None:
             print(f"[motion_detector] Warning: Could not read mask {mask_path}")
-    else:
-        print(f"[motion_detector] No mask image found at {mask_path}, skipping.")
+        else:
+            # マスクを二値化（0 or 255）して確実に動作させる
+            # 1以上の値があれば「監視対象」とする（誤って薄いグレーで塗られた場合への対策）
+            _, mask_img = cv2.threshold(mask_img, 1, 255, cv2.THRESH_BINARY)
+            print(f"[motion_detector] Mask loaded and binarized: {mask_path}")
 
     last_mtime = 0
     counter = 0
@@ -148,6 +151,7 @@ def main():
             time.sleep(0.05)
             continue
 
+        print(f"[motion_detector] Frame update detected: {mtime}")
         counter += 1
         last_mtime = mtime
 
@@ -192,11 +196,14 @@ def main():
         # --- 3. ノイズ除去：強力な垂直オープニング ---
         fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel_v)
 
-# --- 輪郭抽出と判定 ---
+        # --- 輪郭抽出と判定 ---
         contours, _ = cv2.findContours(fgmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         motion = False  # ループの前に初期化
         img_w = frame.shape[1]
+
+        if len(contours) > 0:
+            print(f"[motion_detector] Found {len(contours)} raw contours")
 
         for contour in contours:
             area = cv2.contourArea(contour)
@@ -205,16 +212,21 @@ def main():
 
             x, y, w, h = cv2.boundingRect(contour)
             aspect_ratio = float(w) / h
+            
+            print(f"[motion_detector] Candidate: Area={area}, Aspect={aspect_ratio:.2f}, Width={w}")
 
             # --- 形状フィルタリング ---
             # 横長すぎるもの（帯状ノイズ）を無視
             if aspect_ratio > max_aspect_ratio:
+                print(f"[motion_detector] Rejected: Too wide aspect ratio {aspect_ratio:.2f}")
                 continue
             # 画像幅の半分を超えるような巨大すぎる横長も無視
             if w > img_w * 0.6:
+                print(f"[motion_detector] Rejected: Too large width {w}")
                 continue
 
             # ここまで到達すれば「本物の動体」とみなす
+            print(f"[motion_detector] MOTION DETECTED! Area={area}")
             motion = True
             break  # 一つでも見つかれば確定なのでループを抜ける
 

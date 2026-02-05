@@ -11,6 +11,9 @@ router = APIRouter()
 
 MAIN_CONFIG = config_loader.load_main_config()
 
+from common.config_loader import MOTION_TMP_BASE, NVR_CONFIG_MASK_DIR
+
+# Helper function moved to config_loader
 def get_camera_status(camera_name: str) -> str:
     """
     Check if the camera's ffmpeg service is active.
@@ -21,12 +24,6 @@ def get_camera_status(camera_name: str) -> str:
         return result.stdout.strip()
     except Exception:
         return "unknown"
-
-def get_motion_tmp_base() -> str:
-    """
-    Get motion_tmp_base from main.yaml.
-    """
-    return config_loader.get_config_value(MAIN_CONFIG, "common.motion_tmp_base", "/dev/shm/motion_tmp")
 
 @router.get("/")
 async def get_cameras():
@@ -71,8 +68,7 @@ async def get_camera_latest(camera_name: str):
     """
     Serve the latest.jpg image for the camera.
     """
-    tmp_base = get_motion_tmp_base()
-    img_path = os.path.join(tmp_base, camera_name, "latest.jpg")
+    img_path = os.path.join(MOTION_TMP_BASE, camera_name, "latest.jpg")
     
     if not os.path.exists(img_path):
         return Response(status_code=404)
@@ -144,7 +140,7 @@ async def get_camera_mask(camera_name: str):
     """
     Check if a mask image exists for the camera and return it.
     """
-    file_path = os.path.join(NVR_CONFIG_DIR, "masks", f"{camera_name}.png")
+    file_path = os.path.join(NVR_CONFIG_MASK_DIR, f"{camera_name}.png")
     if not os.path.exists(file_path):
         return Response(status_code=404)
         
@@ -154,9 +150,9 @@ async def get_camera_mask(camera_name: str):
 async def upload_camera_mask(camera_name: str, file: UploadFile = File(...)):
     """
     Upload a grayscale mask image (PNG recommended) for the camera.
-    Saved to /etc/nvr/masks/<camera_name>.png
+    Saved to the mask directory.
     """
-    mask_dir = os.path.join(NVR_CONFIG_DIR, "masks")
+    mask_dir = NVR_CONFIG_MASK_DIR
     os.makedirs(mask_dir, exist_ok=True)
     
     file_path = os.path.join(mask_dir, f"{camera_name}.png")

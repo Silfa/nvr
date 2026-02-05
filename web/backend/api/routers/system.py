@@ -9,17 +9,9 @@ from common import config_loader
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-MAIN_CONFIG = config_loader.load_main_config()
+from common.config_loader import RECORDS_DIR_BASE
 
-def get_config_value(key_path: str) -> Any:
-     keys = key_path.split('.')
-     val = MAIN_CONFIG
-     for k in keys:
-         if isinstance(val, dict):
-             val = val.get(k)
-         else:
-             return None
-     return val
+# Removed local get_config_value
 
 @router.get("/status")
 async def get_system_status():
@@ -27,11 +19,7 @@ async def get_system_status():
     Get system status (disk usage, service status).
     """
     # Disk Usage (NVR Storage)
-    storage_path = get_config_value("common.records_dir_base")
-    if not storage_path:
-         # Fallback but log warning
-         logger.warning("Using fallback storage path: /mnt/WD_Purple/NVR")
-         storage_path = "/mnt/WD_Purple/NVR"
+    storage_path = RECORDS_DIR_BASE
 
     try:
         total, used, free = shutil.disk_usage(storage_path)

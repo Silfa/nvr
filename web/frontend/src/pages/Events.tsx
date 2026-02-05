@@ -302,8 +302,11 @@ export function Events() {
 
                             {/* Frame Gallery */}
                             <div className="space-y-3 pb-4">
-                                <h4 className="text-sm font-bold text-gray-400 flex items-center space-x-2">
+                                <h4 className="text-sm font-bold text-gray-400 flex flex-wrap items-center gap-2">
                                     <span>Captured Frames</span>
+                                    <span className="text-[10px] bg-blue-900/30 text-blue-400 px-2 py-0.5 rounded border border-blue-800/30">
+                                        {new Date(selectedEvent.timestamp).toLocaleTimeString()}
+                                    </span>
                                     <span className="text-[10px] bg-gray-800 px-2 py-0.5 rounded text-gray-500">{eventFrames.length} total</span>
                                 </h4>
                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">

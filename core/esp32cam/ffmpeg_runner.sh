@@ -62,90 +62,45 @@ START_TIME=$(date -Is)
 OUTFILE="${RECORD_DIR}/$(date +%Y%m%d_%H%M%S).mkv"
 
 # ---------------------------------------------------------
-# 5. ffmpeg 実行 & 終了処理（シグナル制御）
+# 5. ffmpeg 実行
 # ---------------------------------------------------------
-
-# systemd からの停止信号に応答し、ffmpeg を止めてからリネーム処理を行うための仕組み
-cleanup() {
-    echo "[esp32cam] Received termination signal. Stopping ffmpeg..."
-    if [ -n "${FFMPEG_PID:-}" ]; then
-        kill -TERM "$FFMPEG_PID" 2>/dev/null || true
-        wait "$FFMPEG_PID" 2>/dev/null || true
-    fi
-    
-    # 録画終了後のリネームをバックグラウンドで切り離して実行
-    (finalize_recording "$OUTFILE" >/dev/null 2>&1 &)
-    exit 0
-}
-
-# 録画ファイルを計測して正確な開始時刻にリネームする関数
-finalize_recording() {
-    local target_file="${1:-$OUTFILE}"
-    if [ -f "$target_file" ]; then
-        echo "[esp32cam] Finalizing $target_file..."
-        # ffprobe での計測（接続ラグを除去した正確な長さを取得）
-        DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$target_file" || echo 0)
-        
-        if [[ "$DURATION" != "0" && "$DURATION" != "N/A" ]]; then
-            END_TS=$(stat -c %Y "$target_file")
-            START_TS=$(echo "$END_TS - $DURATION" | bc | cut -d. -f1)
-            
-            NEW_NAME=$(date -d "@$START_TS" +%Y%m%d_%H%M%S).mkv
-            NEW_PATH="${RECORD_DIR}/${NEW_NAME}"
-            
-            echo "[esp32cam] Sync complete: Actual start at $NEW_NAME (duration ${DURATION}s)"
-            mv "$target_file" "$NEW_PATH"
-        else
-            echo "[esp32cam] Warning: Could not determine duration for $target_file"
-        fi
-    fi
-}
-
-trap cleanup SIGTERM SIGINT
-
 echo "[esp32cam] Starting ffmpeg for ${CAM}"
 echo "[esp32cam] RTSP: $RTSP_URL"
-echo "[esp32cam] Temporary outfile: $OUTFILE"
+echo "[esp32cam] Outfile: $OUTFILE"
 
-# FFmpeg 実行（バックグラウンドで開始し、PIDを記録）
-ffmpeg \
+exec /usr/bin/ffmpeg \
     -hide_banner -loglevel warning \
+    -init_hw_device vaapi=intel:/dev/dri/renderD128 \
+    -filter_hw_device intel \
     \
-    -timeout 5000000 \
     -rtsp_transport tcp \
-    -fflags +igndts+nobuffer+flush_packets \
-    -flags low_delay \
+    -timeout 15000000 \
     -use_wallclock_as_timestamps 1 \
-    -probesize 150k \
-    -analyzeduration 150k \
+    -fflags +igndts+genpts+discardcorrupt+nobuffer \
+    -analyzeduration 5M \
+    -probesize 5M \
     -i "$RTSP_URL" \
     \
-    -y \
+    -filter_complex "
+        [0:v]split=2[v_to_gpu][v_to_img];
+        [v_to_gpu]format=nv12,hwupload[v_enc_out];
+        [v_to_img]fifo,fps=10,format=yuvj420p[v_img_final]
+    " \
     \
-    -map 0:v \
-    -vf fps=5 \
-    -q:v 5 \
-    -update 1 "$LATEST" \
-    \
--map 0:v \
-    -c:v libx264 \
-    -preset veryfast \
-    -crf 23 \
-    -pix_fmt yuv420p \
-    -vsync cfr \
-    -forced-idr 1 \
+    -map "[v_enc_out]" \
+    -c:v h264_vaapi \
+    -qp 26 \
+    -g 100 \
+    -fps_mode cfr -r 10 \
     -max_interleave_delta 0 \
     -reset_timestamps 1 \
     -metadata title="$START_TIME" \
-    "$OUTFILE" &
-
-FFMPEG_PID=$!
-
-# FFmpeg の終了を待機
-wait "$FFMPEG_PID" || true
-
-# 通常終了（RuntimeMaxSec 到達時など）
-# バックグラウンドで実行し、親プロセスは即座に終了して再起動を促す
-(finalize_recording "$OUTFILE" >/dev/null 2>&1 &)
-
-exit 0
+    "$OUTFILE" \
+    \
+    -map "[v_img_final]" \
+    -f image2 \
+    -q:v 10 \
+    -update 1 \
+    -atomic_writing 1 \
+    -y \
+    "$LATEST"

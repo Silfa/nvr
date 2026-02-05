@@ -11,9 +11,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# NVR Configuration Paths
-NVR_CONFIG_DIR = os.getenv("NVR_CONFIG_DIR", "/etc/nvr")
-NVR_BASE_DIR = os.getenv("NVR_BASE_DIR", "/usr/local/bin/nvr")
+from common.config_loader import NVR_BASE_DIR, NVR_CONFIG_DIR
 
 app = FastAPI(
     title="NVR Web API",

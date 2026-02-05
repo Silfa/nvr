@@ -34,13 +34,18 @@ else
     EVENT_TIME="$EVENT_ID"
 fi
 
-# 最初のJPEGを取得 (0001.jpg を優先的に探す)
-FIRST_JPEG_PATH="$EVENT_DIR/0001.jpg"
-if [ ! -f "$FIRST_JPEG_PATH" ]; then
-    # 0001.jpg がなければ ls で探す（フォールバック）
-    FIRST_JPEG=$(ls "$EVENT_DIR"/*.jpg 2>/dev/null | sort | head -n 1)
-    if [ -n "$FIRST_JPEG" ]; then
-        FIRST_JPEG_PATH="$FIRST_JPEG"
+# 添付するJPEGを取得 (0002.jpgを優先、なければ2番目、それでもなければ最初の画像を添付)
+ATTACH_JPEG_PATH="$EVENT_DIR/0002.jpg"
+if [ ! -f "$ATTACH_JPEG_PATH" ]; then
+    # 0002.jpg がなければ ls の結果から探す
+    ATTACH_JPEG=$(ls "$EVENT_DIR"/*.jpg 2>/dev/null | sort | sed -n '2p') # 2番目のファイルを取得
+    if [ -z "$ATTACH_JPEG" ]; then
+        # 2番目のファイルもなければ、最初のファイルを取得 (フォールバック)
+        ATTACH_JPEG=$(ls "$EVENT_DIR"/*.jpg 2>/dev/null | sort | sed -n '1p')
+    fi
+
+    if [ -n "$ATTACH_JPEG" ]; then
+        ATTACH_JPEG_PATH="$ATTACH_JPEG"
     else
         echo "[NVR SendAlert] No JPEG images found in $EVENT_DIR"
         exit 0
@@ -60,4 +65,4 @@ $EVENT_DIR
 
 # メール送信
 echo "[NVR SendAlert] Sending email to $MAIL_ADDRESS (Cam: $CAM_NAME, Time: $EVENT_TIME)"
-echo "$BODY" | mail -s "NVR Motion Alert: $CAM_NAME at $EVENT_TIME" -A "$FIRST_JPEG_PATH" "$MAIL_ADDRESS"
+echo "$BODY" | mail -s "NVR Motion Alert: $CAM_NAME at $EVENT_TIME" -A "$ATTACH_JPEG_PATH" "$MAIL_ADDRESS"

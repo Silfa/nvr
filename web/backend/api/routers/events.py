@@ -14,39 +14,16 @@ import subprocess
 from common import config_loader
 from common.video_utils import parse_recording_timestamp, get_video_duration
 
+from common.config_loader import EVENTS_DIR_BASE, RECORDS_DIR_BASE
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-MAIN_CONFIG = config_loader.load_main_config()
-
-def get_config_value(key_path: str) -> Any:
-     keys = key_path.split('.')
-     val = MAIN_CONFIG
-     for k in keys:
-         if isinstance(val, dict):
-             val = val.get(k)
-         else:
-             return None
-     return val
-
-def get_events_dir_base() -> str:
-    val = get_config_value("common.events_dir_base")
-    if val:
-        return val
-    logger.warning("Using fallback events path: /mnt/WD_Purple/NVR/events")
-    return "/mnt/WD_Purple/NVR/events"
-
-def get_records_dir_base() -> str:
-    val = get_config_value("common.records_dir_base")
-    if val:
-        return val
-    logger.warning("Using fallback records path: /mnt/WD_Purple/NVR/records")
-    return "/mnt/WD_Purple/NVR/records"
+# Removed redundant directory helpers and fallbacks
 
 
 def find_video_for_event(camera: str, event_time: datetime) -> tuple[Optional[str], int]:
-    records_base = get_records_dir_base()
-    cam_records_dir = os.path.join(records_base, camera)
+    cam_records_dir = os.path.join(RECORDS_DIR_BASE, camera)
     
     if not os.path.exists(cam_records_dir):
         logger.warning(f"Records dir not found: {cam_records_dir}")
@@ -127,7 +104,7 @@ async def list_events(
     end_time: Optional[str] = None,   # HHMMSS or HH:MM:SS
     limit: int = 60
 ):
-    base_dir = get_events_dir_base()
+    base_dir = EVENTS_DIR_BASE
     events_list = []
     
     # To optimize, we traverse carefully.
@@ -218,7 +195,7 @@ async def list_events(
 
 @router.delete("/{camera}/{year}/{month}/{event_id}")
 async def delete_event(camera: str, year: str, month: str, event_id: str):
-    base_dir = get_events_dir_base()
+    base_dir = EVENTS_DIR_BASE
     event_dir = os.path.join(base_dir, camera, year, month, event_id)
     
     if os.path.exists(event_dir):
@@ -231,7 +208,7 @@ async def delete_event(camera: str, year: str, month: str, event_id: str):
 
 @router.get("/{camera}/{year}/{month}/{event_id}/frames")
 async def list_event_frames(camera: str, year: str, month: str, event_id: str):
-    base_dir = get_events_dir_base()
+    base_dir = EVENTS_DIR_BASE
     event_dir = os.path.join(base_dir, camera, year, month, event_id)
     
     if not os.path.exists(event_dir):
@@ -243,23 +220,25 @@ async def list_event_frames(camera: str, year: str, month: str, event_id: str):
 
 @router.get("/{camera}/{year}/{month}/{event_id}/thumbnail")
 async def get_event_thumbnail(camera: str, year: str, month: str, event_id: str):
-    base_dir = get_events_dir_base()
+    base_dir = EVENTS_DIR_BASE
     event_dir = os.path.join(base_dir, camera, year, month, event_id)
     
-    # Try 0001.jpg, or finding any jpg
-    thumb_path = os.path.join(event_dir, "0001.jpg")
+    # Try 0002.jpg first (as 0001 is often pre-motion), then 0001.jpg, then any available jpg
+    thumb_path = os.path.join(event_dir, "0002.jpg")
     if not os.path.exists(thumb_path):
-        frames = sorted(glob.glob(os.path.join(event_dir, "*.jpg")))
-        if frames:
-            thumb_path = frames[0]
-        else:
-            return Response(status_code=404)
+        thumb_path = os.path.join(event_dir, "0001.jpg")
+        if not os.path.exists(thumb_path):
+            frames = sorted(glob.glob(os.path.join(event_dir, "*.jpg")))
+            if frames:
+                thumb_path = frames[0]
+            else:
+                return Response(status_code=404)
             
     return FileResponse(thumb_path, media_type="image/jpeg")
 
 @router.get("/{camera}/{year}/{month}/{event_id}/frame/{frame}")
 async def get_event_frame(camera: str, year: str, month: str, event_id: str, frame: str):
-    base_dir = get_events_dir_base()
+    base_dir = EVENTS_DIR_BASE
     frame_path = os.path.join(base_dir, camera, year, month, event_id, frame)
     
     if not os.path.exists(frame_path):
