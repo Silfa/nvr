@@ -1,3 +1,30 @@
 # Sensitive information
 config/secrets/*
 !config/secrets/.gitkeep
+
+# --- OS & IDE (共通) ---
+Thumbs.db          # Windowsのサムネイル
+.vscode/           # VS Codeの設定 (共有したい設定がある場合は中身を選別)
+
+# --- Python (NVR Backend) ---
+__pycache__/       # コンパイル済みファイル（必須！）
+*.pyc
+.venv/             # 仮想環境フォルダ
+venv/
+*.log              # ログファイル
+
+# --- Node.js / React (Web Frontend) ---
+node_modules/      # 依存ライブラリ（超巨大なので絶対無視！）
+build/             # ビルド出力フォルダ
+dist/
+.npm
+*.local            # ローカル環境設定
+
+# --- PlatformIO / ESP32 (Embedded) ---
+.pio/              # ビルド成果物やキャッシュ
+.pioenvs/
+
+# --- 重要: 機密情報 ---
+.env               # APIキーやパスワードが入るファイル（絶対コミットしない！）
+keys/              # 証明書など
+*.pem
