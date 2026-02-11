@@ -65,4 +65,4 @@ $EVENT_DIR
 
 # メール送信
 echo "[NVR SendAlert] Sending email to $MAIL_ADDRESS (Cam: $CAM_NAME, Time: $EVENT_TIME)"
-echo "$BODY" | mail -s "NVR Motion Alert: $CAM_NAME at $EVENT_TIME" -A "$ATTACH_JPEG_PATH" "$MAIL_ADDRESS"
+echo "$BODY" | mail -r "$MAIL_ADDRESS" -s "NVR Motion Alert: $CAM_NAME at $EVENT_TIME" -A "$ATTACH_JPEG_PATH" "$MAIL_ADDRESS"
