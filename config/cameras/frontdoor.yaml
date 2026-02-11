@@ -38,6 +38,7 @@ motion:
 # ---------------------------------------------------------
 event:
   timeout: 10
+  post_motion_buffer_sec: 2
 
 # ---------------------------------------------------------
 # Day/Night mode settings（main.yaml の default を使用）

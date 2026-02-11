@@ -11,7 +11,7 @@ UMask=000
 Type=simple
 ExecStart={{NVR_CORE_DIR}}/ffmpeg_nvr.sh %i
 Restart=always
-RestartSec=3
+RestartSec=1
 TimeoutStopSec=10
 
 [Install]

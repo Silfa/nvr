@@ -33,6 +33,9 @@ source "$COMMON_UTILS"
 # event.timeout（個別 → default）
 IDLE_SEC=$(get_nvr_val "$CAM" ".event.timeout" ".common.default_event_timeout")
 
+# event.post_motion_buffer_sec（個別 → default）
+POST_MOTION_BUFFER_SEC=$(get_nvr_val "$CAM" ".event.post_motion_buffer_sec" ".common.default_post_motion_buffer_sec")
+
 # events_dir_base（main.yaml）
 EVENTS_BASE=$(get_main_val ".common.events_dir_base")
 
@@ -50,6 +53,7 @@ YAVG_FILE="$TMP_DIR/yavg.txt"
 # ---------------------------------------------------------
 event_active=0
 frame_counter=0
+alert_sent=0
 last_saved_mtime=0
 event_dir=""
 event_id=""
@@ -142,6 +146,7 @@ start_event() {
     event_start_epoch=$(date +%s)
     last_motion_time=$event_start_epoch
     last_saved_mtime=0
+    alert_sent=0
     brightness_min=""
     brightness_max=""
 
@@ -191,26 +196,65 @@ EOF
 # 6. イベント終了
 # ---------------------------------------------------------
 end_event() {
+    # --- [追加] 末尾の無駄な静止画を削除する処理 ---
+    # 「最後にモーションがあった時刻 + 余韻」を計算
+    local cutoff_time=$((last_motion_time + POST_MOTION_BUFFER_SEC))
+    
+    # イベントディレクトリ内の全JPEGをチェック
+    # (ファイル名順＝時系列順なので、後ろから消すなどの最適化も可能ですが、
+    #  数十枚程度なら全走査でも一瞬です)
+    for f in "$event_dir"/*.jpg; do
+        if [ -f "$f" ]; then
+            local fmt
+            fmt=$(stat -c %Y "$f" 2>/dev/null || echo 0)
+            
+            # プレモーション画像(0001.jpg)は絶対に消さない（安全策）
+            if [[ "$f" == *"0001.jpg" ]]; then
+                continue
+            fi
+
+            # カットオフ時刻より新しいファイルは削除
+            if [ "$fmt" -gt "$cutoff_time" ]; then
+                rm "$f"
+            fi
+        fi
+    done
+
+    # --- [修正] 削除後の正しいファイル数を再カウント ---
+    # 削除によってフレーム数が減っているため、ls で数え直す
+    frame_counter=$(ls -1 "$event_dir"/*.jpg 2>/dev/null | wc -l)
+
+    # -----------------------------------------------------
+
     local end_iso end_epoch duration first_frame last_frame total_size
 
+    # 終了時刻は「現在時刻」ではなく「最後のファイルの時間（あるいはcutoff_time）」にするのが自然ですが、
+    # シンプルに処理完了時刻とします（または last_motion_time に合わせるのもあり）
     end_iso=$(date -Is)
-    end_epoch=$(date +%s)
-    duration=$((end_epoch - event_start_epoch))
+    
+    # duration も「実際に保存された期間」に再計算
+    # (開始時刻 〜 最後のファイルの更新時刻)
+    local last_file_mtime
+    last_file_mtime=$(stat -c %Y "$(ls -t "$event_dir"/*.jpg | head -1)" 2>/dev/null || echo "$event_start_epoch")
+    duration=$((last_file_mtime - event_start_epoch))
+    if [ $duration -lt 0 ]; then duration=0; fi
 
     if [ $frame_counter -gt 0 ]; then
-        printf -v first_frame "%04d.jpg" 1
-        printf -v last_frame "%04d.jpg" "$frame_counter"
+        # ファイルリストが変わっているので、first/last を再取得
+        first_frame=$(ls "$event_dir"/*.jpg | head -1 | xargs basename)
+        last_frame=$(ls "$event_dir"/*.jpg | tail -1 | xargs basename)
+        
         total_size=$(du -cb "$event_dir"/*.jpg 2>/dev/null | tail -1 | cut -f1)
         [ -z "$total_size" ] && total_size=0
     else
-        first_frame=null
-        last_frame=null
+        first_frame="null"
+        last_frame="null"
         total_size=0
     fi
 
     local bmin bmax
-    [ -z "$brightness_min" ] && bmin=null || bmin="$brightness_min"
-    [ -z "$brightness_max" ] && bmax=null || bmax="$brightness_max"
+    [ -z "$brightness_min" ] && bmin="null" || bmin="$brightness_min"
+    [ -z "$brightness_max" ] && bmax="null" || bmax="$brightness_max"
 
     jq \
       --arg end_ts "$end_iso" \
@@ -225,8 +269,8 @@ end_event() {
         .timestamp_end = $end_ts
         | .duration_sec = $dur
         | .jpeg_count = $count
-        | .first_frame = ($ff | if . == "null" then null else . end)
-        | .last_frame  = ($lf | if . == "null" then null else . end)
+        | .first_frame = (if $ff == "null" then null else $ff end)
+        | .last_frame  = (if $lf == "null" then null else $lf end)
         | .total_size_bytes = $size
         | .brightness_min = $bmin
         | .brightness_max = $bmax
@@ -234,11 +278,10 @@ end_event() {
 
     mv "$event_dir/event.json.tmp" "$event_dir/event.json"
 
-    echo "[handler] EVENT END $event_id ($frame_counter frames, ${duration}s)"
+    echo "[handler] EVENT END $event_id (Trimmed to $frame_counter frames, ${duration}s)"
 
     event_active=0
     frame_counter=0
-    last_saved_mtime=0
     brightness_min=""
     brightness_max=""
 }
@@ -247,51 +290,76 @@ end_event() {
 # 7. メインループ
 # ---------------------------------------------------------
 while true; do
-    if [ -f "$LATEST" ]; then
-        mtime=$(stat -c %Y "$LATEST" 2>/dev/null || echo 0)
+    # 現在時刻の取得
+    now=$(date +%s)
 
-        if [ "$mtime" -eq "$last_saved_mtime" ] || [ "$mtime" -eq 0 ]; then
-            sleep 0.05
-            continue
+    # =========================================================
+    # Phase A: 状態遷移 (開始判定 / タイムアウト判定)
+    #   - ここは画像(latest.jpg)の状態に依存させてはいけない
+    # =========================================================
+    
+    if [ -f "$MOTION_FLAG" ]; then
+        # --- モーション検知中 ---
+        last_motion_time=$now
+
+        if [ $event_active -eq 0 ]; then
+            # 新規イベント開始
+            # (start_event内で last_saved_mtime=0 にリセットされる)
+            start_event
         fi
-
-        last_saved_mtime=$mtime
-        now=$(date +%s)
-
-        # 1. motion.flag の状態
-        if [ -f "$MOTION_FLAG" ]; then
-            last_motion_time=$now
-
-            if [ $event_active -eq 0 ]; then
-                start_event
-            fi
-        else
-            if [ $event_active -eq 1 ]; then
-                diff=$((now - last_motion_time))
-                if [ $diff -ge $IDLE_SEC ]; then
-                    end_event
-                fi
-            fi
-        fi
-
-        # 2. イベント中なら JPEG 保存（完全性チェック付き）
+    else
+        # --- モーションフラグ無し（静止中） ---
         if [ $event_active -eq 1 ]; then
-            if validate_jpeg "$LATEST"; then
-                frame_counter=$((frame_counter + 1))
-                printf -v fname "%04d.jpg" "$frame_counter"
-                cp "$LATEST" "$event_dir/$fname"
-
-                # 初回フレーム保存時にアラート送信（非同期）
-                if [ $frame_counter -eq 1 ] && [ -x "$NVR_CORE_DIR/send_motion_alert.sh" ]; then
-                   # loggerのタグとしてイベントIDを使用し、システムログに記録する
-                    ( "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" 2>&1 | logger -t "nvr_send_alert[${event_id}]" ) &
-                fi
-
-                # 3. brightness 更新
-                update_brightness
+            # 最後の動きから IDLE_SEC 経過したかチェック
+            diff=$((now - last_motion_time))
+            
+            if [ $diff -ge $IDLE_SEC ]; then
+                # タイムアウト確定 -> 終了処理へ
+                # (end_event内で末尾の静止画を削除する)
+                end_event
             fi
         fi
     fi
 
+    # =========================================================
+    # Phase B: 画像保存 (イベント中のみ実行)
+    # =========================================================
+    if [ $event_active -eq 1 ]; then
+        
+        # latest.jpg が存在するか確認
+        if [ -f "$LATEST" ]; then
+            mtime=$(stat -c %Y "$LATEST" 2>/dev/null || echo 0)
+
+            # 「新しい画像である(前回保存した時刻と違う)」かつ「有効な時刻」なら保存処理
+            # ※ start_eventで last_saved_mtime=0 にしているので、
+            #    イベント最初の1枚は必ずここで保存される。
+            if [ "$mtime" -ne "$last_saved_mtime" ] && [ "$mtime" -ne 0 ]; then
+                
+                # 完全性チェック（壊れたJPEGを保存しない）
+                if validate_jpeg "$LATEST"; then
+                    
+                    frame_counter=$((frame_counter + 1))
+                    printf -v fname "%04d.jpg" "$frame_counter"
+                    
+                    # コピー実行
+                    cp "$LATEST" "$event_dir/$fname"
+                    
+                    # 保存した時刻を記録（次のループでの重複防止）
+                    last_saved_mtime=$mtime 
+
+                    # 初回検知時のアラート送信（非同期）
+                    if [ $alert_sent -eq 0 ] && [ -x "$NVR_CORE_DIR/send_motion_alert.sh" ]; then
+                         ( "$NVR_CORE_DIR/send_motion_alert.sh" "$event_dir" 2>&1 | logger -t "nvr_alert" ) &
+                         alert_sent=1
+                    fi
+
+                    # 輝度統計更新
+                    update_brightness
+                fi
+            fi
+        fi
+    fi
+
+    # CPU負荷軽減のためのウェイト
     sleep 0.05
 done

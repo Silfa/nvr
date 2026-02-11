@@ -83,3 +83,22 @@ get_nvr_val() {
 # --- デバッグ用: source した瞬間に変数が正しく入っているか確認したい場合は
 # 以下の echo のコメントを外して確認してください
 # echo "DEBUG: NVR_CONFIG_MAIN is $NVR_CONFIG_MAIN"
+
+# --- 6. 揮発性ディレクトリの自動復旧 ---
+# /dev/shm 以下のディレクトリが定義されていれば、読み込み時に自動作成する
+if [[ "$NVR_DAYNIGHT_FILE_DIR" == /dev/shm/* ]]; then
+    if [ ! -d "$NVR_DAYNIGHT_FILE_DIR" ]; then
+        mkdir -p "$NVR_DAYNIGHT_FILE_DIR"
+        chown -R "$NVR_USER":"$NVR_GROUP" "$NVR_DAYNIGHT_FILE_DIR"
+    fi
+fi
+
+# Motion用の一時ディレクトリ (/dev/shm/motion_tmp) も自動作成
+MOTION_TMP_BASE=$(get_main_val '.common.motion_tmp_base')
+if [[ "$MOTION_TMP_BASE" == /dev/shm/* ]]; then
+    if [ ! -d "$MOTION_TMP_BASE" ]; then
+        mkdir -p "$MOTION_TMP_BASE"
+        chown "$NVR_USER":"$NVR_GROUP" "$MOTION_TMP_BASE"
+    fi
+fi
+
