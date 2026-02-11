@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    /* 通常（ライトモード）の色 */
+    .shield { fill: #2196F3; transition: fill 0.3s; }
+    .lens-outer { fill: #333; }
+    .lens-inner { fill: #111; }
+    .highlight { fill: white; opacity: 0.3; }
+    .symbol { fill: white; }
+
+    /* ダークモード時の色指定 */
+    @media (prefers-color-scheme: dark) {
+      .shield { fill: #111; stroke: #90CAF9; stroke-width: 2; }
+      .lens-outer { fill: #90CAF9; }
+      .lens-inner { fill: #000; }
+      .symbol { fill: #90CAF9; }
+    }
+  </style>
+
+  <path class="shield" d="M50 5 L15 20 V55 C15 75 50 95 50 95 C50 95 85 75 85 55 V20 L50 5Z" />
+  
+  <circle class="lens-outer" cx="50" cy="45" r="22" />
+  <circle class="lens-inner" cx="50" cy="45" r="18" />
+  <circle class="highlight" cx="56" cy="39" r="5" />
+  
+  <polygon class="symbol" points="45,75 45,85 58,80" />
+</svg>
