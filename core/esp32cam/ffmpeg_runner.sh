@@ -75,23 +75,25 @@ exec /usr/bin/ffmpeg \
     \
     -rtsp_transport tcp \
     -timeout 15000000 \
+    -max_delay 5000000 \
+    -reorder_queue_size 4096 \
     -use_wallclock_as_timestamps 1 \
     -fflags +igndts+genpts+discardcorrupt+nobuffer \
-    -analyzeduration 5M \
-    -probesize 5M \
+    -analyzeduration 1M \
+    -probesize 1M \
     -i "$RTSP_URL" \
     \
     -filter_complex "
         [0:v]split=2[v_to_gpu][v_to_img];
         [v_to_gpu]format=nv12,hwupload[v_enc_out];
-        [v_to_img]fifo,fps=10,format=yuvj420p[v_img_final]
+        [v_to_img]fifo,fps=5,format=yuv420p,setrange=pc[v_img_final]
     " \
     \
     -map "[v_enc_out]" \
     -c:v h264_vaapi \
     -qp 26 \
     -g 100 \
-    -fps_mode cfr -r 10 \
+    -fps_mode cfr -r 5 \
     -max_interleave_delta 0 \
     -reset_timestamps 1 \
     -metadata title="$START_TIME" \
@@ -99,7 +101,7 @@ exec /usr/bin/ffmpeg \
     \
     -map "[v_img_final]" \
     -f image2 \
-    -q:v 10 \
+    -q:v 18 \
     -update 1 \
     -atomic_writing 1 \
     -y \

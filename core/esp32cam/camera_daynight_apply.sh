@@ -23,11 +23,14 @@ DAYNIGHT_FILE="$NVR_DAYNIGHT_FILE_DIR/daynight_${CAM}.txt"
 # ---------------------------------------------------------
 # 1. 現在の昼夜モード取得
 # ---------------------------------------------------------
+echo "[DEBUG] Get day/night value."
 if ! MODE=$("$NVR_CORE_DIR/get_daynight.sh" "$CAM"); then
     echo "[$CAM] Warning: get_daynight.sh failed, defaulting to night"
     MODE="night"
 fi
+echo "[DEBUG] ${MODE}"
 OLD=$(cat "$DAYNIGHT_FILE" 2>/dev/null || echo "unknown")
+
 
 # 変化なしなら終了
 if [ "$MODE" = "$OLD" ]; then
@@ -66,6 +69,7 @@ echo "[$CAM] Switching to $MODE mode..."
 # ---------------------------------------------------------
 # 3. POST /config
 # ---------------------------------------------------------
+echo "[DEBUG] Post json: ${JSON}"
 RESP=$(curl -s -X POST "http://${HOST}/config" \
     -H "Content-Type: application/json" \
     -d "$JSON")
