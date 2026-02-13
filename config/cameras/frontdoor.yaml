@@ -75,13 +75,17 @@ esp32cam:
           "denoise": true,
           "sharpness": 0,
           "lenc": true,
-          "jpeg_quality": 10,
+          "jpeg_quality": 12,
           "vflip": true,
           "hmirror": true
+        },
+        "stream": {
+          "fps": 8
         }
+
       }
 
-    night: |
+    night: | 
       {
         "camera": {
           "brightness": 1,
@@ -95,8 +99,10 @@ esp32cam:
           "denoise": true,
           "sharpness": 1,
           "lenc": true,
-          "jpeg_quality": 10,
+          "jpeg_quality": 12,
           "vflip": true,
           "hmirror": true
-        }
+        },
+                "stream": {
+          "fps": 8
       }
