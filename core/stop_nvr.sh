@@ -72,3 +72,6 @@ for CAM in $CAMERAS; do
 done
 
 echo "[stop_nvr] All running NVR services stopped."
+
+systemctl stop nvr-web.service
+echo "[stop_nvr] WebUI stoped."

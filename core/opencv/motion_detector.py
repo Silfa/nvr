@@ -44,9 +44,8 @@ def is_valid_jpeg_bytes(data):
 # ---------------------------------------------------------
 # 2. 平均輝度（YAVG）を計算
 # ---------------------------------------------------------
-def calc_yavg(frame):
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    return int(np.mean(gray))
+# def calc_yavg(frame):
+#    return int(np.mean(frame[::10, ::10, :]))
 
 # ----------------------------------------
 # 4. メイン処理
@@ -144,14 +143,14 @@ def main():
         try:
             mtime = os.path.getmtime(latest_jpg)
         except FileNotFoundError:
-            time.sleep(0.1)
+            time.sleep(0.5)
             continue
 
         if mtime == last_mtime:
-            time.sleep(0.05)
+            time.sleep(0.2)
             continue
 
-        print(f"[motion_detector] Frame update detected: {mtime}")
+        # print(f"[motion_detector] Frame update detected: {mtime}")
         counter += 1
         last_mtime = mtime
 
@@ -171,6 +170,7 @@ def main():
         
         if frame is None:
             # 読み込み失敗時はスキップして次ループへ
+            time.sleep(0.1)
             continue
 
 
@@ -183,19 +183,35 @@ def main():
                 mask_img = cv2.resize(mask_img, (w, h))
 
         # --- 1. 前処理：メディアンフィルタでざらつきを除去 ---
+        # --- グレイスケールで解析
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # --- 上部 80px をカット
+        h_start = 80
+        roi = gray[h_start:, :]
+
         # カーネルサイズは奇数。ノイズが酷い場合は 7 や 9 に上げる など調整。
-        blurred = cv2.medianBlur(frame, blur)
+        #blurred = cv2.medianBlur(frame, blur)
+        blurred = cv2.medianBlur(roi, 3)
 
         # --- 2. 背景差分法による動体検知 ---
         fgmask = fgbg.apply(blurred) 
 
         # --- マスク適用 ---
         if mask_img is not None:
-            fgmask = cv2.bitwise_and(fgmask, mask_img)
+            current_mask = mask_img[h_start:, :]
+            fgmask = cv2.bitwise_and(fgmask, current_mask)
         
         # --- 3. ノイズ除去：強力な垂直オープニング ---
-        fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel_v)
+        fgmask = cv2.erode(fgmask, kernel_v)
 
+        # 【追加】画面全体の変化率チェック（映像の乱れをここで弾く）
+        white_pixels = cv2.countNonZero(fgmask)
+        if white_pixels > (fgmask.size * 0.3): # 画面の30%以上が変化していたら異常
+            print(f"[motion_detector] Glitch ignored: change_ratio={white_pixels/fgmask.size:.2f}")
+            # 異常フレームとして、motion_flag を更新せずに次へ
+            prev_frame = frame
+            continue
         # --- 輪郭抽出と判定 ---
         contours, _ = cv2.findContours(fgmask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -249,16 +265,14 @@ def main():
                 except FileNotFoundError:
                     pass
 
+        # YAVG の保存(5frameに1回)
+        # if counter % 5 == 0:
+        #    yavg = calc_yavg(frame)
+        #    with open(yavg_file, "w") as f:
+        #        f.write(str(yavg))
+
         # Update prev_frame for next iteration
-        prev_frame = frame.copy()
-
-        # YAVG の保存
-        yavg = calc_yavg(frame)
-        with open(yavg_file, "w") as f:
-            f.write(str(yavg))
-
-        # CPU 負荷軽減
-        time.sleep(0.1)
+        prev_frame = frame
 
 # ----------------------------------------
 # 実行

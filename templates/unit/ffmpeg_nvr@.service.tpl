@@ -6,7 +6,6 @@ Wants=network-online.target
 [Service]
 User={{NVR_USER}}
 Group={{NVR_GROUP}}
-Environment="LIBVA_DRIVERS_PATH=/usr/lib/x86_64-linux-gnu/dri"
 UMask=000
 Type=simple
 ExecStart={{NVR_CORE_DIR}}/ffmpeg_nvr.sh %i

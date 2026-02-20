@@ -76,3 +76,6 @@ for CAM in $CAMERAS; do
 done
 
 echo "[start_nvr] All enabled cameras started."
+
+systemctl start nvr-web.service
+echo "[start_nvr] WebUI started."
